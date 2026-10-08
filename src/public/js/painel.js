@@ -6,6 +6,7 @@ let listaHistoricoCache = [];
 let operadorPerfilCache = null;
 let tabulacaoResolvido = null;
 let listaAssuntosCache = [];
+let modoFiltroFila = 'minhas'; // FASE 4: Controlo de filtro da fila ('minhas' ou 'todas')
 
 // PROTEÇÃO DE ROTA & CAPTURA DO PERFIL DO OPERADOR VIA BACKEND
 auth.onAuthStateChanged(async user => {
@@ -34,6 +35,9 @@ async function carregarPerfilOperador(email) {
         if (btnGestao) {
             btnGestao.style.display = operadorPerfilCache.funcao === 'admin' ? 'inline-block' : 'none';
         }
+
+        // Atualiza a fila para refletir imediatamente os assuntos atribuídos
+        carregarListaAtendimentos();
     } catch (erro) {
         console.error('Erro ao carregar perfil do operador:', erro);
     }
@@ -87,6 +91,12 @@ async function alterarStatusOperador(novoStatus) {
     } catch (erro) {
         console.error('Erro ao atualizar status do operador:', erro);
     }
+}
+
+// FASE 4: ALTERAR FILTRO DE COMPETÊNCIAS DA FILA DE ESPERA
+function alterarFiltroFila(novoModo) {
+    modoFiltroFila = novoModo;
+    carregarListaAtendimentos();
 }
 
 // CARREGAR ASSUNTOS PARA ALTERAÇÃO DE TAG NO CHAT
@@ -288,21 +298,34 @@ async function carregarListaAtendimentos() {
     }
 }
 
+// FASE 4: RENDERIZAÇÃO DA FILA COM FILTRAGEM POR COMPETÊNCIAS
 function renderizarFila(fila) {
     const container = document.getElementById('lista-fila');
     const countElement = document.getElementById('count-fila');
-    
-    if (countElement) countElement.innerText = fila.length;
+
+    // Filtragem dinâmica por competências do operador logado
+    let filaExibida = fila;
+    if (modoFiltroFila === 'minhas' && operadorPerfilCache && Array.isArray(operadorPerfilCache.assuntos) && operadorPerfilCache.assuntos.length > 0) {
+        filaExibida = fila.filter(chat => {
+            const assuntoChat = chat.origem || 'Geral';
+            return operadorPerfilCache.assuntos.includes(assuntoChat);
+        });
+    }
+
+    if (countElement) countElement.innerText = filaExibida.length;
     if (!container) return;
 
     container.innerHTML = '';
 
-    if (fila.length === 0) {
-        container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px;">Nenhum cliente na fila</div>';
+    if (filaExibida.length === 0) {
+        const textoVazio = (modoFiltroFila === 'minhas' && operadorPerfilCache && operadorPerfilCache.assuntos && operadorPerfilCache.assuntos.length > 0)
+            ? 'Nenhum chamado para suas competências'
+            : 'Nenhum cliente na fila';
+        container.innerHTML = `<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px;">${textoVazio}</div>`;
         return;
     }
 
-    fila.forEach(chat => {
+    filaExibida.forEach(chat => {
         const div = document.createElement('div');
         div.className = 'card-chat';
         div.innerHTML = `
