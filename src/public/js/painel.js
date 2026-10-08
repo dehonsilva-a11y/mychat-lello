@@ -15,12 +15,15 @@ auth.onAuthStateChanged(user => {
         if (nomeDisplay) {
             nomeDisplay.innerText = user.displayName || user.email;
         }
+        // Registra status inicial como 'Disponível'
+        alterarStatusOperador('disponivel');
     }
 });
 
 document.addEventListener('DOMContentLoaded', () => {
     carregarListaAtendimentos();
     carregarHistoricoAtendimentos();
+    carregarRespostasRapidas();
 
     setInterval(carregarListaAtendimentos, 2000);
     setInterval(carregarMensagensChatAtivo, 1500);
@@ -44,7 +47,132 @@ function obterNomeOperador() {
     return 'Atendente Lello';
 }
 
-// Emissor de Beep Sonoro via Web Audio API (sem precisar de arquivos .mp3)
+// STATUS DE PRESENÇA DO OPERADOR
+async function alterarStatusOperador(novoStatus) {
+    if (!auth.currentUser) return;
+    const prefixo = window.prefixoApp || '';
+    try {
+        await fetch(prefixo + '/api/operador/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: auth.currentUser.email,
+                nome: obterNomeOperador(),
+                status: novoStatus
+            })
+        });
+    } catch (erro) {
+        console.error('Erro ao atualizar status do operador:', erro);
+    }
+}
+
+// RESPOSTAS RÁPIDAS (TEMPLATES)
+async function carregarRespostasRapidas() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const resposta = await fetch(prefixo + '/api/atendimento/respostas-rapidas');
+        const dados = await resposta.json();
+        renderizarRespostasRapidas(dados.respostas || []);
+    } catch (erro) {
+        console.error('Erro ao carregar respostas rápidas:', erro);
+    }
+}
+
+function renderizarRespostasRapidas(lista) {
+    const container = document.getElementById('lista-respostas-rapidas');
+    if (!container) return;
+
+    container.innerHTML = '';
+    lista.forEach(item => {
+        const chip = document.createElement('div');
+        chip.className = 'chip-rr';
+        chip.innerText = item.titulo;
+        chip.title = item.texto;
+        chip.onclick = () => {
+            const input = document.getElementById('input-resposta-operador');
+            if (input) {
+                input.value = item.texto;
+                input.focus();
+            }
+        };
+        container.appendChild(chip);
+    });
+}
+
+// TRANSFERÊNCIA DE ATENDIMENTO
+async function abrirModalTransferir() {
+    if (!chatSelecionadoId) return;
+    const prefixo = window.prefixoApp || '';
+    const select = document.getElementById('select-operador-transferencia');
+    const modal = document.getElementById('modal-transferir');
+
+    if (select) select.innerHTML = '<option value="">A carregar...</option>';
+    if (modal) modal.style.display = 'flex';
+
+    try {
+        const resposta = await fetch(prefixo + '/api/operadores/lista');
+        const dados = await resposta.json();
+        const operadores = dados.operadores || [];
+
+        if (select) {
+            select.innerHTML = '<option value="">Selecione um operador...</option>';
+            const atualEmail = auth.currentUser ? auth.currentUser.email : '';
+
+            operadores.forEach(op => {
+                if (op.email !== atualEmail) {
+                    const statusEmoji = op.status === 'disponivel' ? '🟢' : (op.status === 'pausa' ? '🟡' : '🔴');
+                    const option = document.createElement('option');
+                    option.value = op.nome || op.email;
+                    option.innerText = `${statusEmoji} ${op.nome || op.email} (${op.status || 'offline'})`;
+                    select.appendChild(option);
+                }
+            });
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar lista de operadores:', erro);
+    }
+}
+
+function fecharModalTransferir() {
+    const modal = document.getElementById('modal-transferir');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmarTransferencia() {
+    const select = document.getElementById('select-operador-transferencia');
+    const novoAtendente = select ? select.value : '';
+
+    if (!novoAtendente || !chatSelecionadoId) {
+        alert('Selecione um operador para transferir.');
+        return;
+    }
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        const resposta = await fetch(prefixo + '/api/atendimento/transferir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatId: chatSelecionadoId,
+                novoAtendente,
+                antigoAtendente: obterNomeOperador()
+            })
+        });
+        const dados = await resposta.json();
+
+        if (dados.sucesso) {
+            fecharModalTransferir();
+            chatSelecionadoId = null;
+            document.getElementById('chat-vazio').style.display = 'flex';
+            document.getElementById('chat-ativo-container').style.display = 'none';
+            carregarListaAtendimentos();
+        }
+    } catch (erro) {
+        console.error('Erro ao transferir atendimento:', erro);
+    }
+}
+
+// Emissor de Beep Sonoro via Web Audio API
 function emitirBeepSonoro() {
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -63,7 +191,7 @@ function emitirBeepSonoro() {
         osc.start();
         osc.stop(ctx.currentTime + 0.2);
     } catch (e) {
-        // Ignora caso o navegador bloqueie áudio automático antes da interação do utilizador
+        // Ignora bloqueios de áudio sem interação prévia
     }
 }
 
@@ -77,7 +205,6 @@ async function carregarListaAtendimentos() {
         const fila = dados.fila || [];
         const ativos = dados.emAtendimento || [];
 
-        // Notificação sonora se entrar um novo cliente na fila
         if (fila.length > quantidadeFilaAnterior) {
             emitirBeepSonoro();
         }
@@ -175,8 +302,11 @@ function selecionarChat(chat) {
     const chatAtivoContainer = document.getElementById('chat-ativo-container');
     const nomeClienteAtivo = document.getElementById('nome-cliente-ativo');
     const origemClienteAtivo = document.getElementById('origem-cliente-ativo');
+    const badgeNps = document.getElementById('badge-nps-ativo');
     const areaResposta = document.getElementById('area-resposta-operador');
+    const areaRR = document.getElementById('area-respostas-rapidas');
     const btnEncerrar = document.getElementById('btn-encerrar-chat');
+    const btnTransferir = document.getElementById('btn-transferir-chat');
 
     if (chatVazio) chatVazio.style.display = 'none';
     if (chatAtivoContainer) chatAtivoContainer.style.display = 'flex';
@@ -184,13 +314,25 @@ function selecionarChat(chat) {
     if (nomeClienteAtivo) nomeClienteAtivo.innerText = chat.nome;
     if (origemClienteAtivo) origemClienteAtivo.innerText = chat.origem || 'Geral';
 
-    // Se for visualização do histórico (encerrado), oculta botões de envio/encerramento
+    if (chat.nps && chat.nps.nota) {
+        if (badgeNps) {
+            badgeNps.innerText = `⭐ Nota: ${chat.nps.nota}/5`;
+            badgeNps.style.display = 'inline-block';
+        }
+    } else {
+        if (badgeNps) badgeNps.style.display = 'none';
+    }
+
     if (chatSelecionadoStatus === 'Encerrado') {
         if (areaResposta) areaResposta.style.display = 'none';
+        if (areaRR) areaRR.style.display = 'none';
         if (btnEncerrar) btnEncerrar.style.display = 'none';
+        if (btnTransferir) btnTransferir.style.display = 'none';
     } else {
         if (areaResposta) areaResposta.style.display = 'flex';
+        if (areaRR) areaRR.style.display = 'flex';
         if (btnEncerrar) btnEncerrar.style.display = 'block';
+        if (btnTransferir) btnTransferir.style.display = 'block';
     }
 
     document.getElementById('painel-messages').innerHTML = '';
@@ -207,8 +349,18 @@ async function carregarMensagensChatAtivo() {
         const dados = await resposta.json();
 
         const mensagens = dados.mensagens || [];
+        const nps = dados.nps || null;
 
-        // Notificação sonora para novas mensagens do cliente
+        const badgeNps = document.getElementById('badge-nps-ativo');
+        if (nps && nps.nota) {
+            if (badgeNps) {
+                badgeNps.innerText = `⭐ Nota: ${nps.nota}/5`;
+                badgeNps.style.display = 'inline-block';
+            }
+        } else {
+            if (badgeNps) badgeNps.style.display = 'none';
+        }
+
         if (mensagens.length > ultimasMensagensCount) {
             const ultimaMsg = mensagens[mensagens.length - 1];
             if (ultimaMsg && ultimaMsg.de === 'cliente' && ultimasMensagensCount > 0) {

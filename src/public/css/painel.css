@@ -65,21 +65,24 @@ body {
     border-radius: 20px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
-#nome-operador-input {
+/* Status de Presença do Operador */
+#select-status-operador {
     padding: 4px 8px;
-    border-radius: 4px;
+    border-radius: 6px;
     border: 1px solid #cbd5e1;
-    font-size: 12px;
-    font-weight: bold;
-    color: #1e293b;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
     outline: none;
     background: #ffffff;
+    color: #1e293b;
+    transition: border-color 0.2s;
 }
 
-#nome-operador-input:focus {
+#select-status-operador:focus {
     border-color: #A00028;
 }
 
@@ -229,11 +232,36 @@ body {
     background: #b91c1c;
 }
 
+#btn-transferir-chat {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#btn-transferir-chat:hover {
+    background: #1d4ed8;
+}
+
 .badge-origem {
     font-size: 11px;
     font-weight: 600;
     background: #e0f2fe;
     color: #0369a1;
+    padding: 3px 10px;
+    border-radius: 12px;
+}
+
+.badge-nps {
+    font-size: 11px;
+    font-weight: bold;
+    background: #fef08a;
+    color: #854d0e;
     padding: 3px 10px;
     border-radius: 12px;
 }
@@ -302,6 +330,44 @@ body {
     border-top-right-radius: 2px;
 }
 
+/* Barra de Respostas Rápidas (Chips) */
+.respostas-rapidas-bar {
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+}
+
+.chips-container {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 2px;
+}
+
+.chip-rr {
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.chip-rr:hover {
+    background: #A00028;
+    color: #ffffff;
+    border-color: #A00028;
+}
+
 /* Área de Input */
 .chat-footer-operador {
     padding: 16px 24px;
@@ -348,4 +414,27 @@ body {
 
 .btn-send-operador:active {
     transform: scale(0.98);
+}
+
+/* Modal de Transferência */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
 }
