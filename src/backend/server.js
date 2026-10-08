@@ -27,8 +27,13 @@ app.get('/painel.html', (req, res) => {
     res.sendFile(path.join(publicPath, 'painel.html'));
 });
 
-// Inicialização local (apenas quando não estiver no Vercel)
-if (process.env.NODE_ENV !== 'production') {
+// Fallback para rotas estáticas não encontradas
+app.get('*', (req, res) => {
+    res.sendFile(path.join(publicPath, 'index.html'));
+});
+
+// Inicialização local (executado apenas fora da Vercel)
+if (!process.env.VERCEL) {
     const PORTA = process.env.PORT || 3000;
     app.listen(PORTA, () => {
         console.log(`🚀 Servidor Mychat Local online na porta ${PORTA}`);
