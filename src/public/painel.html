@@ -21,6 +21,10 @@
                 <h2>Mychat | Cockpit de Atendimento</h2>
             </div>
             <div class="user-info" style="display: flex; align-items: center; gap: 14px;">
+                
+                <!-- Botão de Acesso à Gestão (Visível Apenas para Admin) -->
+                <a href="admin.html" id="btn-acesso-gestao" style="display: none; background: rgba(255, 255, 255, 0.15); color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;">Painel de Gestão</a>
+
                 <!-- Status de Presença do Operador -->
                 <div class="status-container" style="display: flex; align-items: center; gap: 6px;">
                     <select id="select-status-operador" onchange="alterarStatusOperador(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 600; cursor: pointer; outline: none; background: #ffffff; color: #1e293b;">
@@ -71,7 +75,15 @@
                     <div class="chat-header-operador">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <h3 id="nome-cliente-ativo">Cliente</h3>
-                            <span id="origem-cliente-ativo" class="badge-origem">Origem</span>
+                            
+                            <!-- Edição de Assunto/Tag -->
+                            <div style="position: relative; display: flex; align-items: center;">
+                                <select id="origem-cliente-ativo" onchange="alterarTagChat()" style="appearance: none; background: #e0f2fe; color: #0369a1; padding: 4px 20px 4px 10px; border-radius: 12px; border: 1px solid transparent; font-size: 11px; font-weight: 600; cursor: pointer; outline: none; transition: border 0.2s;">
+                                    <option value="">Carregando assuntos...</option>
+                                </select>
+                                <span style="position: absolute; right: 8px; font-size: 8px; pointer-events: none;">▼</span>
+                            </div>
+
                             <span id="badge-nps-ativo" class="badge-nps" style="display: none; background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;"></span>
                         </div>
                         
@@ -80,7 +92,7 @@
                             <button id="btn-transferir-chat" onclick="abrirModalTransferir()" style="background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
                                 🔄 Transferir
                             </button>
-                            <button id="btn-encerrar-chat" onclick="encerrarAtendimentoAtual()" style="background: #dc2626; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
+                            <button id="btn-encerrar-chat" onclick="abrirModalTabulacao()" style="background: #dc2626; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
                                 Encerrar Atendimento
                             </button>
                         </div>
@@ -116,6 +128,31 @@
             <div style="display: flex; justify-content: flex-end; gap: 8px;">
                 <button onclick="fecharModalTransferir()" style="background: #e2e8f0; color: #475569; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Cancelar</button>
                 <button onclick="confirmarTransferencia()" style="background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Confirmar Transferência</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Tabulação de Encerramento Obrigatória -->
+    <div id="modal-tabulacao" class="modal-overlay" style="display: none;">
+        <div class="modal-card">
+            <h3 style="font-size: 16px; margin-bottom: 14px; color: #1e293b; text-align: center;">Tabulação do Atendimento</h3>
+            <p style="font-size: 13px; color: #475569; margin-bottom: 16px; text-align: center;">O problema do cliente foi resolvido nesta interação?</p>
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                <button id="btn-resolvido-sim" onclick="selecionarResolvidoTab(true)" style="flex: 1; padding: 12px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; color: #475569;">Sim, resolvido</button>
+                <button id="btn-resolvido-nao" onclick="selecionarResolvidoTab(false)" style="flex: 1; padding: 12px; border: 2px solid #cbd5e1; background: white; border-radius: 8px; font-weight: bold; cursor: pointer; color: #475569;">Não resolvido</button>
+            </div>
+
+            <div id="box-motivo-nao-resolvido" style="display: none; flex-direction: column; gap: 6px; margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: bold; color: #475569;">Motivo da Não-Resolução:</label>
+                <select id="select-motivo-tabulacao" style="padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 13px; outline: none;">
+                    <option value="">A carregar motivos...</option>
+                </select>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+                <button onclick="fecharModalTabulacao()" style="background: #e2e8f0; color: #475569; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Cancelar</button>
+                <button onclick="confirmarEncerramentoTabulado()" style="background: #A00028; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Encerrar Chat</button>
             </div>
         </div>
     </div>

@@ -3,33 +3,53 @@ let chatSelecionadoStatus = null;
 let quantidadeFilaAnterior = 0;
 let ultimasMensagensCount = 0;
 let listaHistoricoCache = [];
+let operadorPerfilCache = null;
+let tabulacaoResolvido = null;
+let listaAssuntosCache = [];
 
-// PROTEÇÃO DE ROTA & CAPTURA DO OPERADOR
-auth.onAuthStateChanged(user => {
+// PROTEÇÃO DE ROTA & CAPTURA DO PERFIL DO OPERADOR VIA BACKEND
+auth.onAuthStateChanged(async user => {
     if (!user) {
-        // Se não houver operador autenticado, redireciona para a tela de login
         window.location.href = (window.prefixoApp || '') + '/login.html';
     } else {
-        // Exibe o nome ou e-mail do operador logado no cabeçalho
-        const nomeDisplay = document.getElementById('nome-operador-display');
-        if (nomeDisplay) {
-            nomeDisplay.innerText = user.displayName || user.email;
-        }
-        // Registra status inicial como 'Disponível'
+        await carregarPerfilOperador(user.email);
         alterarStatusOperador('disponivel');
     }
 });
+
+async function carregarPerfilOperador(email) {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + `/api/operador/perfil?email=${encodeURIComponent(email)}`);
+        operadorPerfilCache = await res.json();
+
+        // Atualiza Nome no Cabeçalho (exibe Nome cadastrado em vez do email)
+        const nomeDisplay = document.getElementById('nome-operador-display');
+        if (nomeDisplay) {
+            nomeDisplay.innerText = operadorPerfilCache.nome || email;
+        }
+
+        // Exibe o botão de Painel de Gestão apenas para Administradores
+        const btnGestao = document.getElementById('btn-acesso-gestao');
+        if (btnGestao) {
+            btnGestao.style.display = operadorPerfilCache.funcao === 'admin' ? 'inline-block' : 'none';
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar perfil do operador:', erro);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     carregarListaAtendimentos();
     carregarHistoricoAtendimentos();
     carregarRespostasRapidas();
+    carregarAssuntosSelect();
+    carregarMotivosTabulacao();
 
     setInterval(carregarListaAtendimentos, 2000);
     setInterval(carregarMensagensChatAtivo, 1500);
 });
 
-// Realiza o logout do operador e redireciona para o login
 async function fazerLogout() {
     try {
         await auth.signOut();
@@ -39,8 +59,11 @@ async function fazerLogout() {
     }
 }
 
-// Retorna o nome/e-mail do operador autenticado no Firebase Auth
+// Retorna o nome atualizado do operador
 function obterNomeOperador() {
+    if (operadorPerfilCache && operadorPerfilCache.nome) {
+        return operadorPerfilCache.nome;
+    }
     if (auth.currentUser) {
         return auth.currentUser.displayName || auth.currentUser.email || 'Atendente Lello';
     }
@@ -66,7 +89,55 @@ async function alterarStatusOperador(novoStatus) {
     }
 }
 
-// RESPOSTAS RÁPIDAS (TEMPLATES)
+// CARREGAR ASSUNTOS PARA ALTERAÇÃO DE TAG NO CHAT
+async function carregarAssuntosSelect() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/assuntos');
+        const dados = await res.json();
+        listaAssuntosCache = dados.assuntos || [];
+        
+        const selectTag = document.getElementById('origem-cliente-ativo');
+        if (selectTag) {
+            selectTag.innerHTML = '';
+            listaAssuntosCache.forEach(assunto => {
+                const opt = document.createElement('option');
+                opt.value = assunto;
+                opt.innerText = assunto;
+                selectTag.appendChild(opt);
+            });
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar assuntos para o select:', erro);
+    }
+}
+
+// ALTERAÇÃO EM TEMPO REAL DA TAG/ASSUNTO DO CHAT
+async function alterarTagChat() {
+    if (!chatSelecionadoId) return;
+    const selectTag = document.getElementById('origem-cliente-ativo');
+    const novoAssunto = selectTag ? selectTag.value : '';
+    if (!novoAssunto) return;
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        await fetch(prefixo + '/api/atendimento/alterar-assunto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatId: chatSelecionadoId,
+                novoAssunto,
+                operador: obterNomeOperador()
+            })
+        });
+        carregarMensagensChatAtivo();
+        carregarListaAtendimentos();
+    } catch (erro) {
+        console.error('Erro ao alterar assunto/tag:', erro);
+    }
+}
+
+// RESPOSTAS RÁPIDAS
 async function carregarRespostasRapidas() {
     const prefixo = window.prefixoApp || '';
     try {
@@ -172,7 +243,7 @@ async function confirmarTransferencia() {
     }
 }
 
-// Emissor de Beep Sonoro via Web Audio API
+// BEEP SONORO
 function emitirBeepSonoro() {
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -191,7 +262,7 @@ function emitirBeepSonoro() {
         osc.start();
         osc.stop(ctx.currentTime + 0.2);
     } catch (e) {
-        // Ignora bloqueios de áudio sem interação prévia
+        // Ignora bloqueios sem interação prévia
     }
 }
 
@@ -301,7 +372,7 @@ function selecionarChat(chat) {
     const chatVazio = document.getElementById('chat-vazio');
     const chatAtivoContainer = document.getElementById('chat-ativo-container');
     const nomeClienteAtivo = document.getElementById('nome-cliente-ativo');
-    const origemClienteAtivo = document.getElementById('origem-cliente-ativo');
+    const selectTag = document.getElementById('origem-cliente-ativo');
     const badgeNps = document.getElementById('badge-nps-ativo');
     const areaResposta = document.getElementById('area-resposta-operador');
     const areaRR = document.getElementById('area-respostas-rapidas');
@@ -312,7 +383,7 @@ function selecionarChat(chat) {
     if (chatAtivoContainer) chatAtivoContainer.style.display = 'flex';
 
     if (nomeClienteAtivo) nomeClienteAtivo.innerText = chat.nome;
-    if (origemClienteAtivo) origemClienteAtivo.innerText = chat.origem || 'Geral';
+    if (selectTag) selectTag.value = chat.origem || 'Geral';
 
     if (chat.nps && chat.nps.nota) {
         if (badgeNps) {
@@ -410,20 +481,114 @@ async function enviarRespostaOperador() {
     }
 }
 
-async function encerrarAtendimentoAtual() {
+// TABULAÇÃO E ENCERRAMENTO DE ATENDIMENTO
+async function carregarMotivosTabulacao() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/admin/motivos');
+        const dados = await res.json();
+        const selectMotivo = document.getElementById('select-motivo-tabulacao');
+        if (selectMotivo) {
+            selectMotivo.innerHTML = '<option value="">Selecione o motivo...</option>';
+            (dados.motivos || []).forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.innerText = m;
+                selectMotivo.appendChild(opt);
+            });
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar motivos para tabulação:', erro);
+    }
+}
+
+function abrirModalTabulacao() {
     if (!chatSelecionadoId) return;
-    if (!confirm('Deseja realmente encerrar este atendimento?')) return;
+    tabulacaoResolvido = null;
+    
+    const modal = document.getElementById('modal-tabulacao');
+    const btnSim = document.getElementById('btn-resolvido-sim');
+    const btnNao = document.getElementById('btn-resolvido-nao');
+    const boxMotivo = document.getElementById('box-motivo-nao-resolvido');
+
+    if (btnSim) {
+        btnSim.style.background = 'white';
+        btnSim.style.borderColor = '#cbd5e1';
+        btnSim.style.color = '#475569';
+    }
+    if (btnNao) {
+        btnNao.style.background = 'white';
+        btnNao.style.borderColor = '#cbd5e1';
+        btnNao.style.color = '#475569';
+    }
+    if (boxMotivo) boxMotivo.style.display = 'none';
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function fecharModalTabulacao() {
+    const modal = document.getElementById('modal-tabulacao');
+    if (modal) modal.style.display = 'none';
+}
+
+function selecionarResolvidoTab(isResolvido) {
+    tabulacaoResolvido = isResolvido;
+    const btnSim = document.getElementById('btn-resolvido-sim');
+    const btnNao = document.getElementById('btn-resolvido-nao');
+    const boxMotivo = document.getElementById('box-motivo-nao-resolvido');
+
+    if (isResolvido) {
+        btnSim.style.background = '#dcfce7';
+        btnSim.style.borderColor = '#16a34a';
+        btnSim.style.color = '#15803d';
+
+        btnNao.style.background = 'white';
+        btnNao.style.borderColor = '#cbd5e1';
+        btnNao.style.color = '#475569';
+
+        if (boxMotivo) boxMotivo.style.display = 'none';
+    } else {
+        btnNao.style.background = '#fee2e2';
+        btnNao.style.borderColor = '#dc2626';
+        btnNao.style.color = '#b91c1c';
+
+        btnSim.style.background = 'white';
+        btnSim.style.borderColor = '#cbd5e1';
+        btnSim.style.color = '#475569';
+
+        if (boxMotivo) boxMotivo.style.display = 'flex';
+    }
+}
+
+async function confirmarEncerramentoTabulado() {
+    if (tabulacaoResolvido === null) {
+        alert('Por favor, indique se o atendimento foi resolvido ou não.');
+        return;
+    }
+
+    const selectMotivo = document.getElementById('select-motivo-tabulacao');
+    const motivoNaoResolvido = selectMotivo ? selectMotivo.value : '';
+
+    if (!tabulacaoResolvido && !motivoNaoResolvido) {
+        alert('Por favor, selecione o motivo da não-resolução.');
+        return;
+    }
 
     const prefixo = window.prefixoApp || '';
     try {
         const resposta = await fetch(prefixo + '/api/atendimento/encerrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId: chatSelecionadoId })
+            body: JSON.stringify({
+                chatId: chatSelecionadoId,
+                resolvido: tabulacaoResolvido,
+                motivoNaoResolvido: tabulacaoResolvido ? null : motivoNaoResolvido
+            })
         });
         const dados = await resposta.json();
 
         if (dados.sucesso) {
+            fecharModalTabulacao();
             chatSelecionadoId = null;
             document.getElementById('chat-vazio').style.display = 'flex';
             document.getElementById('chat-ativo-container').style.display = 'none';
@@ -432,7 +597,7 @@ async function encerrarAtendimentoAtual() {
             carregarHistoricoAtendimentos();
         }
     } catch (erro) {
-        console.error('Erro ao encerrar atendimento:', erro);
+        console.error('Erro ao encerrar atendimento tabulado:', erro);
     }
 }
 

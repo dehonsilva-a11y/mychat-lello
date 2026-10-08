@@ -68,6 +68,14 @@ body {
     gap: 12px;
 }
 
+#btn-acesso-gestao {
+    transition: background 0.2s;
+}
+
+#btn-acesso-gestao:hover {
+    background: rgba(255, 255, 255, 0.28) !important;
+}
+
 /* Status de Presença do Operador */
 #select-status-operador {
     padding: 4px 8px;
@@ -257,6 +265,10 @@ body {
     border-radius: 12px;
 }
 
+#origem-cliente-ativo:hover {
+    border-color: #0284c7 !important;
+}
+
 .badge-nps {
     font-size: 11px;
     font-weight: bold;
@@ -416,7 +428,7 @@ body {
     transform: scale(0.98);
 }
 
-/* Modal de Transferência */
+/* Modais */
 .modal-overlay {
     position: fixed;
     top: 0;
