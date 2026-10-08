@@ -14,14 +14,15 @@
 </head>
 <body>
     <div id="painel-container">
-        <!-- Cabeçalho -->
+        <!-- Cabeçalho com Campo do Nome do Operador -->
         <header class="painel-header">
             <div class="logo-area">
                 <img id="logo-lello" src="assets/logo.png" alt="Lello" style="height: 28px;">
                 <h2>Mychat | Cockpit de Atendimento</h2>
             </div>
-            <div class="user-info">
-                <span>Colaborador: <strong>Atendente Lello</strong></span>
+            <div class="user-info" style="display: flex; align-items: center; gap: 8px;">
+                <span>Operador:</span>
+                <input type="text" id="nome-operador-input" value="Atendente Lello" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; font-weight: bold; color: #333;">
             </div>
         </header>
 
@@ -38,6 +39,15 @@
                     <h3>Meus Atendimentos (<span id="count-ativos">0</span>)</h3>
                     <div id="lista-ativos" class="lista-chats"></div>
                 </div>
+
+                <!-- Nova Seção: Histórico de Atendimentos -->
+                <div class="secao-lista" style="border-bottom: none;">
+                    <h3>Histórico</h3>
+                    <div style="padding: 6px 12px;">
+                        <input type="text" id="filtro-historico" placeholder="Buscar histórico..." oninput="filtrarHistorico()" style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                    </div>
+                    <div id="lista-historico" class="lista-chats"></div>
+                </div>
             </aside>
 
             <!-- Área Central de Chat -->
@@ -52,13 +62,17 @@
                             <h3 id="nome-cliente-ativo">Cliente</h3>
                             <span id="origem-cliente-ativo" class="badge-origem">Origem</span>
                         </div>
+                        <!-- Botão Encerrar Atendimento -->
+                        <button id="btn-encerrar-chat" onclick="encerrarAtendimentoAtual()" style="background: #dc2626; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
+                            Encerrar Atendimento
+                        </button>
                     </div>
 
                     <!-- Mensagens com balões e identificação visual -->
                     <div id="painel-messages" class="chat-messages-operador"></div>
 
-                    <!-- Rodapé de Input Estilizado -->
-                    <div class="chat-footer-operador">
+                    <!-- Rodapé de Input -->
+                    <div class="chat-footer-operador" id="area-resposta-operador">
                         <input type="text" id="input-resposta-operador" placeholder="Escreva a resposta para o cliente..." onkeypress="tratarKeyPressOperador(event)">
                         <button class="btn-send-operador" onclick="enviarRespostaOperador()">Enviar Resposta</button>
                     </div>

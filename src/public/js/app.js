@@ -1,7 +1,8 @@
 let idClienteAtual = null;
+let intervalPolling = null;
 
 // Inicia o polling contínuo para procurar respostas do atendente
-setInterval(carregarRespostasServidor, 1500);
+intervalPolling = setInterval(carregarRespostasServidor, 1500);
 
 async function iniciarAtendimentoComTriagem() {
     const prefixo = window.prefixoApp || '';
@@ -89,9 +90,10 @@ async function carregarRespostasServidor() {
         const resposta = await fetch(url, { cache: 'no-store' });
         const dados = await resposta.json();
 
+        const chatBody = document.getElementById('chat-messages');
+        if (!chatBody) return;
+
         if (dados.mensagens && dados.mensagens.length > 0) {
-            const chatBody = document.getElementById('chat-messages');
-            
             // Preserva apenas os avisos iniciais de sistema (triagem/posição)
             const msgsSistema = chatBody.querySelectorAll('.msg-sistema');
             chatBody.innerHTML = ''; 
@@ -100,12 +102,29 @@ async function carregarRespostasServidor() {
             // Renderiza todas as mensagens recebidas do Firestore
             dados.mensagens.forEach(msg => {
                 const div = document.createElement('div');
-                div.className = msg.de === 'cliente' ? 'msg-cliente' : 'msg-atendente';
+                if (msg.de === 'cliente') {
+                    div.className = 'msg-cliente';
+                } else if (msg.de === 'atendente') {
+                    div.className = 'msg-atendente';
+                } else {
+                    div.className = 'msg-sistema';
+                }
                 div.innerText = msg.texto;
                 chatBody.appendChild(div);
             });
 
             chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // Se o atendimento foi encerrado no backend pelo operador
+        if (dados.status === 'Encerrado' || dados.status === 'encerrado') {
+            if (intervalPolling) clearInterval(intervalPolling);
+            
+            const footerInput = document.getElementById('footer-input');
+            if (footerInput) {
+                footerInput.style.display = 'flex';
+                footerInput.innerHTML = '<div style="font-size: 12px; color: #64748b; text-align: center; width: 100%; padding: 8px; font-weight: bold;">Atendimento encerrado pelo operador.</div>';
+            }
         }
     } catch (erro) {
         console.error("❌ ERRO NO WIDGET:", erro); 
@@ -120,6 +139,7 @@ function tratarKeyPress(event) {
 
 function adicionarMensagemSistema(htmlConteudo) {
     const chatBody = document.getElementById('chat-messages');
+    if (!chatBody) return;
     const div = document.createElement('div');
     div.className = 'msg-sistema';
     div.innerHTML = htmlConteudo;

@@ -20,6 +20,7 @@ router.post('/iniciar', async (req, res) => {
                 email: email || 'Não informado',
                 origem: assunto || 'Geral',
                 status: 'Aguardando',
+                atendente: null,
                 mensagens: [],
                 criadoEm: admin.firestore.FieldValue.serverTimestamp()
             });
@@ -74,13 +75,17 @@ router.post('/mensagem', async (req, res) => {
 router.get('/mensagem/cliente', async (req, res) => {
     try {
         const { chatId } = req.query;
-        if (!chatId) return res.json({ mensagens: [] });
+        if (!chatId) return res.json({ mensagens: [], status: null });
 
         const doc = await db.collection('chats').doc(String(chatId).trim()).get();
-        res.json({ mensagens: doc.exists ? doc.data().mensagens : [] });
+        if (doc.exists) {
+            const data = doc.data();
+            return res.json({ mensagens: data.mensagens || [], status: data.status });
+        }
+        res.json({ mensagens: [], status: null });
     } catch (erro) {
         console.error('[ERRO buscar mensagens]', erro);
-        res.status(500).json({ mensagens: [] });
+        res.status(500).json({ mensagens: [], status: null });
     }
 });
 
@@ -105,15 +110,36 @@ router.get('/atendimento/lista', async (req, res) => {
     }
 });
 
+// NOVA ROTA: Obter histórico de chats encerrados
+router.get('/atendimento/historico', async (req, res) => {
+    try {
+        const snapshot = await db.collection('chats').where('status', '==', 'Encerrado').get();
+        const historico = [];
+
+        snapshot.forEach(doc => {
+            historico.push(doc.data());
+        });
+
+        res.json({ historico });
+    } catch (erro) {
+        console.error('[ERRO buscar historico]', erro);
+        res.status(500).json({ historico: [] });
+    }
+});
+
 router.post('/atendimento/assumir', async (req, res) => {
     try {
-        const { chatId } = req.body;
+        const { chatId, atendente } = req.body;
         const idLimpo = String(chatId).trim();
         const chatRef = db.collection('chats').doc(idLimpo);
         const doc = await chatRef.get();
 
         if (doc.exists) {
-            await chatRef.update({ status: 'Em Atendimento' });
+            const nomeAtendente = atendente || 'Atendente Lello';
+            await chatRef.update({ 
+                status: 'Em Atendimento',
+                atendente: nomeAtendente
+            });
             const conversaAtualizada = (await chatRef.get()).data();
             return res.json({ sucesso: true, conversa: conversaAtualizada });
         }
@@ -127,7 +153,7 @@ router.post('/atendimento/assumir', async (req, res) => {
 
 router.post('/atendimento/responder', async (req, res) => {
     try {
-        const { chatId, mensagem } = req.body;
+        const { chatId, mensagem, atendente } = req.body;
         const idLimpo = String(chatId).trim();
         const chatRef = db.collection('chats').doc(idLimpo);
         const doc = await chatRef.get();
@@ -144,8 +170,13 @@ router.post('/atendimento/responder', async (req, res) => {
         }
 
         if (mensagem) {
+            const nomeAtendente = atendente || 'Atendente Lello';
             await chatRef.update({
-                mensagens: admin.firestore.FieldValue.arrayUnion({ de: 'atendente', texto: mensagem })
+                mensagens: admin.firestore.FieldValue.arrayUnion({ 
+                    de: 'atendente', 
+                    texto: mensagem,
+                    autor: nomeAtendente 
+                })
             });
             return res.json({ sucesso: true });
         }
@@ -153,6 +184,33 @@ router.post('/atendimento/responder', async (req, res) => {
         res.status(400).json({ sucesso: false, erro: 'Mensagem vazia' });
     } catch (erro) {
         console.error('[ERRO responder]', erro);
+        res.status(500).json({ sucesso: false });
+    }
+});
+
+// NOVA ROTA: Encerrar atendimento
+router.post('/atendimento/encerrar', async (req, res) => {
+    try {
+        const { chatId } = req.body;
+        const idLimpo = String(chatId).trim();
+        const chatRef = db.collection('chats').doc(idLimpo);
+        const doc = await chatRef.get();
+
+        if (doc.exists) {
+            await chatRef.update({ 
+                status: 'Encerrado',
+                encerradoEm: admin.firestore.FieldValue.serverTimestamp(),
+                mensagens: admin.firestore.FieldValue.arrayUnion({ 
+                    de: 'sistema', 
+                    texto: 'Atendimento encerrado pelo operador.' 
+                })
+            });
+            return res.json({ sucesso: true });
+        }
+
+        res.status(404).json({ sucesso: false, erro: 'Chat não encontrado' });
+    } catch (erro) {
+        console.error('[ERRO encerrar]', erro);
         res.status(500).json({ sucesso: false });
     }
 });
