@@ -25,7 +25,7 @@ auth.onAuthStateChanged(async user => {
             nomeDisplay.innerText = perfil.nome || user.email;
         }
 
-        // Carrega os dados iniciais do painel
+        // Carrega os dados iniciais do painel (incluindo o novo Dashboard)
         inicializarPainelAdmin();
     } catch (erro) {
         console.error('Erro ao verificar permissões:', erro);
@@ -53,16 +53,89 @@ function alternarAba(abaAtiva) {
     const secao = document.getElementById(`aba-${abaAtiva}`);
     if (secao) secao.style.display = 'block';
 
-    // Atualiza botão ativo
-    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(abaAtiva.substring(0, 3)));
+    // Atualiza botão ativo (Mapeamento flexível por ID)
+    const btnIdMap = {
+        'dashboard': 'dash',
+        'colaboradores': 'colab',
+        'assuntos': 'assun',
+        'motivos': 'motiv'
+    };
+    const prefixoAba = btnIdMap[abaAtiva] || abaAtiva.substring(0, 3);
+    
+    const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(prefixoAba));
     if (btn) btn.classList.add('active');
+
+    // Se clicou no dashboard, força a atualização dos dados
+    if (abaAtiva === 'dashboard') {
+        carregarMetricasDashboard();
+    }
 }
 
 // INICIALIZAÇÃO DE DADOS
 function inicializarPainelAdmin() {
+    carregarMetricasDashboard();
     carregarAssuntos();
     carregarMotivos();
     carregarColaboradores();
+}
+
+// --- GESTÃO DE MÉTRICAS (DASHBOARD) ---
+
+async function carregarMetricasDashboard() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/admin/metrics');
+        const dados = await res.json();
+
+        // 1. Atualizar KPIs Superiores
+        document.getElementById('kpi-total').innerText = dados.total || 0;
+        document.getElementById('kpi-fila').innerText = dados.fila || 0;
+        document.getElementById('kpi-em-atendimento').innerText = dados.emAtendimento || 0;
+        document.getElementById('kpi-encerrados').innerText = dados.encerrados || 0;
+        
+        document.getElementById('kpi-nps-media').innerText = dados.npsMedia || '-';
+        document.getElementById('kpi-nps-qtd').innerText = `${dados.qtdNps || 0} avaliações`;
+        
+        document.getElementById('kpi-tma').innerText = `${dados.tmaMinutos || 0} min`;
+
+        // 2. Atualizar Tabela de Operadores
+        const tbodyOp = document.getElementById('tabela-metricas-operadores');
+        tbodyOp.innerHTML = '';
+        if (!dados.porOperador || dados.porOperador.length === 0) {
+            tbodyOp.innerHTML = '<tr><td colspan="4" class="td-carregando">Sem dados no momento.</td></tr>';
+        } else {
+            dados.porOperador.forEach(op => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${op.nome}</strong></td>
+                    <td>${op.atendimentos}</td>
+                    <td>${op.encerrados}</td>
+                    <td><span style="background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">⭐ ${op.npsMedia}</span></td>
+                `;
+                tbodyOp.appendChild(tr);
+            });
+        }
+
+        // 3. Atualizar Tabela de Assuntos
+        const tbodyAssunto = document.getElementById('tabela-metricas-assuntos');
+        tbodyAssunto.innerHTML = '';
+        if (!dados.porAssunto || dados.porAssunto.length === 0) {
+            tbodyAssunto.innerHTML = '<tr><td colspan="2" class="td-carregando">Sem dados no momento.</td></tr>';
+        } else {
+            // Ordenar por volume decrescente
+            const assuntosOrdenados = dados.porAssunto.sort((a, b) => b.quantidade - a.quantidade);
+            assuntosOrdenados.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">${item.assunto}</span></td>
+                    <td>${item.quantidade} chamados</td>
+                `;
+                tbodyAssunto.appendChild(tr);
+            });
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar métricas:', erro);
+    }
 }
 
 // --- GESTÃO DE COLABORADORES ---

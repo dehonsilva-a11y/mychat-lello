@@ -407,7 +407,104 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
     res.json({ respostas });
 });
 
-// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO) ---
+// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS) ---
+
+// Obter Indicadores e Métricas do Dashboard (NPS, TMA, Volumes)
+router.get('/admin/metrics', async (req, res) => {
+    try {
+        const snapshot = await db.collection('chats').get();
+
+        let total = 0;
+        let fila = 0;
+        let emAtendimento = 0;
+        let encerrados = 0;
+
+        let somaNps = 0;
+        let qtdNps = 0;
+
+        let somaDuracaoSegundos = 0;
+        let qtdDuracao = 0;
+
+        const opMap = {};
+        const assuntoMap = {};
+
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            total++;
+
+            if (data.status === 'Aguardando') fila++;
+            else if (data.status === 'Em Atendimento') emAtendimento++;
+            else if (data.status === 'Encerrado') encerrados++;
+
+            // Agrupamento por Assunto
+            const assunto = data.origem || 'Geral';
+            assuntoMap[assunto] = (assuntoMap[assunto] || 0) + 1;
+
+            // Agrupamento por Operador
+            if (data.atendente) {
+                if (!opMap[data.atendente]) {
+                    opMap[data.atendente] = { atendimentos: 0, encerrados: 0, somaNps: 0, qtdNps: 0 };
+                }
+                opMap[data.atendente].atendimentos++;
+                if (data.status === 'Encerrado') {
+                    opMap[data.atendente].encerrados++;
+                }
+            }
+
+            // Cálculo do NPS
+            if (data.nps && typeof data.nps.nota === 'number') {
+                somaNps += data.nps.nota;
+                qtdNps++;
+
+                if (data.atendente && opMap[data.atendente]) {
+                    opMap[data.atendente].somaNps += data.nps.nota;
+                    opMap[data.atendente].qtdNps++;
+                }
+            }
+
+            // Cálculo do TMA (Tempo Médio de Atendimento)
+            if (data.criadoEm && data.encerradoEm) {
+                const inicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
+                const fim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
+
+                if (fim > inicio) {
+                    somaDuracaoSegundos += (fim - inicio) / 1000;
+                    qtdDuracao++;
+                }
+            }
+        });
+
+        const mediaNps = qtdNps > 0 ? (somaNps / qtdNps).toFixed(1) : '-';
+        const tmaMinutos = qtdDuracao > 0 ? (somaDuracaoSegundos / qtdDuracao / 60).toFixed(1) : '0';
+
+        const porOperador = Object.keys(opMap).map(nome => ({
+            nome,
+            atendimentos: opMap[nome].atendimentos,
+            encerrados: opMap[nome].encerrados,
+            npsMedia: opMap[nome].qtdNps > 0 ? (opMap[nome].somaNps / opMap[nome].qtdNps).toFixed(1) : '-'
+        }));
+
+        const porAssunto = Object.keys(assuntoMap).map(assunto => ({
+            assunto,
+            quantidade: assuntoMap[assunto]
+        }));
+
+        res.json({
+            total,
+            fila,
+            emAtendimento,
+            encerrados,
+            npsMedia: mediaNps,
+            qtdNps,
+            tmaMinutos,
+            porOperador,
+            porAssunto
+        });
+    } catch (erro) {
+        console.error('[ERRO metricas]', erro);
+        res.status(500).json({ erro: 'Erro ao calcular métricas' });
+    }
+});
 
 // Cadastrar / Editar Colaborador com Múltiplos Assuntos
 router.post('/admin/operadores/salvar', async (req, res) => {
