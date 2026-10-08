@@ -1,14 +1,18 @@
 {
   "version": 2,
-  "functions": {
-    "src/backend/server.js": {
-      "includeFiles": "src/public/**"
-    }
-  },
-  "rewrites": [
+  "builds": [
     {
-      "source": "/(.*)",
-      "destination": "/src/backend/server.js"
+      "src": "src/backend/server.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/public/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/backend/server.js"
     }
   ]
 }
