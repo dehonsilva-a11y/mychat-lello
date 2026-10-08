@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mychat - Login do Colaborador</title>
+
+    <script>
+        window.prefixoApp = window.location.pathname.match(/^(\/poc\/\d+)/)?.[1] || '';
+    </script>
+
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="logo-area">
+                <img src="assets/logo.png" alt="Lello" class="login-logo">
+                <h2>Cockpit de Atendimento</h2>
+            </div>
+
+            <p class="login-subtit">Faça login com suas credenciais para acessar o painel.</p>
+
+            <form id="form-login" onsubmit="realizarLogin(event)">
+                <div class="input-group">
+                    <label for="email-input">E-mail Corporativo</label>
+                    <input type="email" id="email-input" placeholder="seu.email@lello.com.br" required autocomplete="email">
+                </div>
+
+                <div class="input-group">
+                    <label for="senha-input">Senha</label>
+                    <input type="password" id="senha-input" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+
+                <div id="msg-erro" class="msg-erro" style="display: none;"></div>
+
+                <button type="submit" id="btn-login" class="btn-login">Entrar no Painel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Compat para projetos Vanilla JS) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- Configuração Única e Centralizada do Firebase -->
+    <script src="js/firebase-config.js"></script>
+
+    <script src="js/prefixo.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

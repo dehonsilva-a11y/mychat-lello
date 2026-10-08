@@ -14,15 +14,17 @@
 </head>
 <body>
     <div id="painel-container">
-        <!-- Cabeçalho com Campo do Nome do Operador -->
+        <!-- Cabeçalho com Identificação Automática do Operador e Logout -->
         <header class="painel-header">
             <div class="logo-area">
                 <img id="logo-lello" src="assets/logo.png" alt="Lello" style="height: 28px;">
                 <h2>Mychat | Cockpit de Atendimento</h2>
             </div>
-            <div class="user-info" style="display: flex; align-items: center; gap: 8px;">
-                <span>Operador:</span>
-                <input type="text" id="nome-operador-input" value="Atendente Lello" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; font-weight: bold; color: #333;">
+            <div class="user-info" style="display: flex; align-items: center; gap: 12px;">
+                <span>Operador: <strong id="nome-operador-display">A carregar...</strong></span>
+                <button id="btn-logout" onclick="fazerLogout()" style="background: rgba(255, 255, 255, 0.2); color: white; border: 1px solid rgba(255, 255, 255, 0.4); padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer;">
+                    Sair
+                </button>
             </div>
         </header>
 
@@ -80,6 +82,13 @@
             </main>
         </div>
     </div>
+
+    <!-- SDKs do Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+    <!-- Configuração Única e Centralizada do Firebase -->
+    <script src="js/firebase-config.js"></script>
 
     <script src="js/prefixo.js"></script>
     <script src="js/painel.js"></script>

@@ -4,24 +4,45 @@ let quantidadeFilaAnterior = 0;
 let ultimasMensagensCount = 0;
 let listaHistoricoCache = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Carrega nome do operador guardado no navegador
-    const nomeSalvo = localStorage.getItem('nomeOperador');
-    if (nomeSalvo) {
-        const inputOp = document.getElementById('nome-operador-input');
-        if (inputOp) inputOp.value = nomeSalvo;
+// PROTEÇÃO DE ROTA & CAPTURA DO OPERADOR
+auth.onAuthStateChanged(user => {
+    if (!user) {
+        // Se não houver operador autenticado, redireciona para a tela de login
+        window.location.href = (window.prefixoApp || '') + '/login.html';
+    } else {
+        // Exibe o nome ou e-mail do operador logado no cabeçalho
+        const nomeDisplay = document.getElementById('nome-operador-display');
+        if (nomeDisplay) {
+            nomeDisplay.innerText = user.displayName || user.email;
+        }
     }
+});
 
-    document.getElementById('nome-operador-input')?.addEventListener('change', (e) => {
-        localStorage.setItem('nomeOperador', e.target.value.trim() || 'Atendente Lello');
-    });
-
+document.addEventListener('DOMContentLoaded', () => {
     carregarListaAtendimentos();
     carregarHistoricoAtendimentos();
 
     setInterval(carregarListaAtendimentos, 2000);
     setInterval(carregarMensagensChatAtivo, 1500);
 });
+
+// Realiza o logout do operador e redireciona para o login
+async function fazerLogout() {
+    try {
+        await auth.signOut();
+        window.location.href = (window.prefixoApp || '') + '/login.html';
+    } catch (erro) {
+        console.error('Erro ao efetuar logout:', erro);
+    }
+}
+
+// Retorna o nome/e-mail do operador autenticado no Firebase Auth
+function obterNomeOperador() {
+    if (auth.currentUser) {
+        return auth.currentUser.displayName || auth.currentUser.email || 'Atendente Lello';
+    }
+    return 'Atendente Lello';
+}
 
 // Emissor de Beep Sonoro via Web Audio API (sem precisar de arquivos .mp3)
 function emitirBeepSonoro() {
@@ -44,11 +65,6 @@ function emitirBeepSonoro() {
     } catch (e) {
         // Ignora caso o navegador bloqueie áudio automático antes da interação do utilizador
     }
-}
-
-function obterNomeOperador() {
-    const input = document.getElementById('nome-operador-input');
-    return input ? input.value.trim() || 'Atendente Lello' : 'Atendente Lello';
 }
 
 async function carregarListaAtendimentos() {
