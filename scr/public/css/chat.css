@@ -1,0 +1,170 @@
+* {
+    box-sizing: border-box;
+}
+
+.chat-container {
+    width: 360px;
+    height: 520px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    z-index: 9999;
+}
+
+.chat-header {
+    background: #A00028;
+    color: white;
+    padding: 14px 16px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+}
+
+.chat-body {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background-color: #f9f9f9;
+}
+
+.chat-footer {
+    padding: 10px 12px;
+    background: #fff;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 8px;
+}
+
+/* Botões */
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background: #A00028;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #800020;
+}
+
+.btn-send {
+    padding: 10px 16px;
+    background: #A00028;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-send:hover {
+    background: #800020;
+}
+
+#input-mensagem {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    outline: none;
+}
+
+#input-mensagem:focus {
+    border-color: #A00028;
+}
+
+/* Formulário de Triagem Pré-Chat */
+.form-triagem-box {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.form-triagem-box h4 {
+    font-size: 14px;
+    color: #A00028;
+    margin-bottom: 4px;
+}
+
+.campo-triagem {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.campo-triagem label {
+    font-size: 11px;
+    font-weight: bold;
+    color: #64748b;
+}
+
+.campo-triagem input,
+.campo-triagem select {
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+}
+
+.campo-triagem input:focus,
+.campo-triagem select:focus {
+    border-color: #A00028;
+}
+
+/* Balões de Mensagem */
+.msg-cliente {
+    align-self: flex-end;
+    background: #A00028;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 14px 14px 0px 14px;
+    max-width: 75%;
+    font-size: 13px;
+    word-break: break-word;
+}
+
+.msg-atendente {
+    align-self: flex-start;
+    background: #e9ecef;
+    color: #333;
+    padding: 10px 14px;
+    border-radius: 14px 14px 14px 0px;
+    max-width: 75%;
+    font-size: 13px;
+    word-break: break-word;
+}
+
+.msg-sistema {
+    align-self: center;
+    background: #e0f7fa;
+    color: #006064;
+    border: 1px solid #b2ebf2;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    text-align: center;
+    width: 90%;
+}

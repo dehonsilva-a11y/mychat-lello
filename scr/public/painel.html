@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mychat - Painel do Colaborador</title>
+
+    <script>
+        window.prefixoApp = window.location.pathname.match(/^(\/poc\/\d+)/)?.[1] || '';
+    </script>
+
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/painel.css">
+</head>
+<body>
+    <div id="painel-container">
+        <!-- Cabeçalho -->
+        <header class="painel-header">
+            <div class="logo-area">
+                <img id="logo-lello" src="assets/logo.png" alt="Lello" style="height: 28px;">
+                <h2>Mychat | Cockpit de Atendimento</h2>
+            </div>
+            <div class="user-info">
+                <span>Colaborador: <strong>Atendente Lello</strong></span>
+            </div>
+        </header>
+
+        <!-- Corpo Principal -->
+        <div class="painel-body">
+            <!-- Barra Lateral: Listas -->
+            <aside class="sidebar">
+                <div class="secao-lista">
+                    <h3>Fila de Espera (<span id="count-fila">0</span>)</h3>
+                    <div id="lista-fila" class="lista-chats"></div>
+                </div>
+
+                <div class="secao-lista">
+                    <h3>Meus Atendimentos (<span id="count-ativos">0</span>)</h3>
+                    <div id="lista-ativos" class="lista-chats"></div>
+                </div>
+            </aside>
+
+            <!-- Área Central de Chat -->
+            <main class="chat-main">
+                <div id="chat-vazio" class="placeholder-chat">
+                    <p>Selecione um cliente na lista ao lado para iniciar o atendimento.</p>
+                </div>
+
+                <div id="chat-ativo-container" style="display: none;" class="chat-box-operador">
+                    <div class="chat-header-operador">
+                        <div>
+                            <h3 id="nome-cliente-ativo">Cliente</h3>
+                            <span id="origem-cliente-ativo" class="badge-origem">Origem</span>
+                        </div>
+                    </div>
+
+                    <!-- Mensagens com balões e identificação visual -->
+                    <div id="painel-messages" class="chat-messages-operador"></div>
+
+                    <!-- Rodapé de Input Estilizado -->
+                    <div class="chat-footer-operador">
+                        <input type="text" id="input-resposta-operador" placeholder="Escreva a resposta para o cliente..." onkeypress="tratarKeyPressOperador(event)">
+                        <button class="btn-send-operador" onclick="enviarRespostaOperador()">Enviar Resposta</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/prefixo.js"></script>
+    <script src="js/painel.js"></script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mychat - Lello</title>
+    
+    <script>
+        window.prefixoApp = window.location.pathname.match(/^(\/poc\/\d+)/)?.[1] || '';
+    </script>
+
+    <link rel="stylesheet" href="css/global.css">
+    <link rel="stylesheet" href="css/chat.css">
+</head>
+<body>
+    <div id="app-container">
+        <div id="widget-chat" class="chat-container">
+            <div class="chat-header">
+                <img id="logo-lello" alt="Lello" style="height: 24px;">
+                <span>Mychat - Atendimento</span>
+            </div>
+
+            <!-- Corpo das Mensagens e Formulário -->
+            <div id="chat-messages" class="chat-body">
+                <!-- FORMULÁRIO DE TRIAGEM -->
+                <div id="form-triagem" class="form-triagem-box">
+                    <h4>Preencha os seus dados</h4>
+                    <div class="campo-triagem">
+                        <label for="triagem-nome">Nome *</label>
+                        <input type="text" id="triagem-nome" placeholder="Seu nome">
+                    </div>
+                    <div class="campo-triagem">
+                        <label for="triagem-email">E-mail *</label>
+                        <input type="email" id="triagem-email" placeholder="seu@email.com">
+                    </div>
+                    <div class="campo-triagem">
+                        <label for="triagem-assunto">Assunto *</label>
+                        <select id="triagem-assunto">
+                            <option value="Financeiro">Financeiro / Boletos</option>
+                            <option value="Locação">Locação</option>
+                            <option value="Condomínios">Condomínios</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rodapé 1: Botão Inicial -->
+            <div id="footer-iniciar" class="chat-footer">
+                <button class="btn-primary" onclick="iniciarAtendimentoComTriagem()">Iniciar Atendimento</button>
+            </div>
+
+            <!-- Rodapé 2: Campo de Entrada de Texto (Inicia Oculto) -->
+            <div id="footer-input" class="chat-footer" style="display: none;">
+                <input type="text" id="input-mensagem" placeholder="Escreva a sua mensagem..." onkeypress="tratarKeyPress(event)">
+                <button class="btn-send" onclick="enviarMensagem()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/prefixo.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

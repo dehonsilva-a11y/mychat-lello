@@ -1,4 +1,4 @@
-require('dotenv').config(); // Carrega as variáveis de ambiente (chaves do Firebase)
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -6,18 +6,18 @@ const rotas = require('./rotas');
 
 const app = express();
 
-// Configuração CORS
+// Configuração do CORS e parser JSON
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// Servir os ficheiros estáticos do Frontend (para quando rodar localmente no VS Code)
+// Servir os ficheiros estáticos do Frontend (HTML, CSS, JS)
 const publicPath = path.join(__dirname, '../public');
 app.use(express.static(publicPath));
 
 // Ligar as rotas da API
 app.use('/api', rotas);
 
-// Rota principal para servir o HTML do cliente
+// Rota principal para o Widget do Cliente
 app.get('/', (req, res) => {
     res.sendFile(path.join(publicPath, 'index.html'));
 });
@@ -27,8 +27,7 @@ app.get('/painel.html', (req, res) => {
     res.sendFile(path.join(publicPath, 'painel.html'));
 });
 
-// Inicialização condicional:
-// Se NÃO estivermos no Vercel, iniciamos o servidor na porta 3000 (Local VS Code)
+// Inicialização local (apenas quando não estiver no Vercel)
 if (process.env.NODE_ENV !== 'production') {
     const PORTA = process.env.PORT || 3000;
     app.listen(PORTA, () => {
@@ -36,5 +35,5 @@ if (process.env.NODE_ENV !== 'production') {
     });
 }
 
-// Exportar o app é OBRIGATÓRIO para o Vercel funcionar corretamente
+// Exportar o app para o Vercel utilizar como Serverless Function
 module.exports = app;

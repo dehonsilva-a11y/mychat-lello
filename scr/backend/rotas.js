@@ -1,26 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('firebase-admin');
-
-// Inicialização preparada para o Vercel (Serverless)
-if (!admin.apps || admin.apps.length === 0) {
-    try {
-        if (!process.env.FIREBASE_CREDENTIALS) {
-            throw new Error("A variável FIREBASE_CREDENTIALS não está configurada no Vercel.");
-        }
-        
-        const serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
-        
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log('✅ Firebase conectado no Vercel com sucesso!');
-    } catch (error) {
-        console.error('❌ Erro de inicialização do Firebase:', error.message);
-    }
-}
-
-const db = admin.firestore();
+const { admin, db } = require('./firebase');
 
 // --- ROTAS DO CLIENTE (WIDGET) ---
 
