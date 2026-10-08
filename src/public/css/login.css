@@ -38,6 +38,7 @@ body {
 
 .login-logo {
     height: 36px;
+    width: auto;
 }
 
 .logo-area h2 {
