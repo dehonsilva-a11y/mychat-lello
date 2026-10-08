@@ -7,11 +7,11 @@ const firebaseConfig = {
   appId: "1:245002270926:web:3164b38f929911a65af89f"
 };
 
-
 // Inicializa o Firebase apenas se ainda não tiver sido inicializado
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 
-// Instância global de Autenticação para uso em qualquer script
+// Instâncias globais de Autenticação para uso em qualquer script
 const auth = firebase.auth();
+const googleProvider = new firebase.auth.GoogleAuthProvider();

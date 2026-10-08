@@ -1,9 +1,28 @@
 // auth.js - A instância 'auth' é herdada diretamente do firebase-config.js
 
-// Se o utilizador já estiver logado, redireciona automaticamente para o painel
-auth.onAuthStateChanged(user => {
+// Redirecionamento dinâmico baseado no perfil (Admin vs Colaborador)
+auth.onAuthStateChanged(async user => {
     if (user) {
-        window.location.href = (window.prefixoApp || '') + '/painel.html';
+        const prefixo = window.prefixoApp || '';
+        try {
+            const res = await fetch(prefixo + `/api/operador/perfil?email=${encodeURIComponent(user.email)}`);
+            const perfil = await res.json();
+
+            if (perfil && perfil.funcao === 'admin') {
+                if (!window.location.pathname.includes('/admin.html')) {
+                    window.location.href = prefixo + '/admin.html';
+                }
+            } else {
+                if (!window.location.pathname.includes('/painel.html')) {
+                    window.location.href = prefixo + '/painel.html';
+                }
+            }
+        } catch (erro) {
+            console.error('Erro ao verificar perfil do operador:', erro);
+            if (!window.location.pathname.includes('/painel.html')) {
+                window.location.href = prefixo + '/painel.html';
+            }
+        }
     }
 });
 
@@ -55,6 +74,23 @@ async function realizarLogin(event) {
                 default:
                     msgErro.innerText = 'Erro ao efetuar login. Tente novamente.';
             }
+        }
+    }
+}
+
+// Login com Conta do Google via Popup
+async function realizarLoginGoogle() {
+    const msgErro = document.getElementById('msg-erro');
+    if (msgErro) msgErro.style.display = 'none';
+
+    try {
+        await auth.signInWithPopup(googleProvider);
+        // O redirecionamento é efetuado automaticamente pelo listener onAuthStateChanged
+    } catch (error) {
+        console.error('Erro ao autenticar com o Google:', error);
+        if (msgErro) {
+            msgErro.style.display = 'block';
+            msgErro.innerText = 'Erro ao autenticar com o Google. Tente novamente.';
         }
     }
 }

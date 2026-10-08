@@ -2,7 +2,59 @@ const express = require('express');
 const router = express.Router();
 const { admin, db } = require('./firebase');
 
+// --- ROTAS DE CONFIGURAÇÃO & PERFIL ---
+
+// Obter perfil do operador (Admin vs Colaborador)
+router.get('/operador/perfil', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ erro: 'Email não informado' });
+
+        const emailLimpo = String(email).trim().toLowerCase();
+        const doc = await db.collection('operadores').doc(emailLimpo).get();
+
+        if (doc.exists) {
+            return res.json(doc.data());
+        }
+
+        // Perfil padrão se ainda não estiver cadastrado no banco
+        const perfilPadrao = {
+            email: emailLimpo,
+            nome: emailLimpo.split('@')[0],
+            funcao: 'colaborador',
+            status: 'disponivel',
+            assuntos: []
+        };
+
+        res.json(perfilPadrao);
+    } catch (erro) {
+        console.error('[ERRO obter perfil]', erro);
+        res.status(500).json({ erro: 'Erro ao buscar perfil' });
+    }
+});
+
 // --- ROTAS DO CLIENTE (WIDGET) ---
+
+// Obter assuntos dinâmicos para a triagem do widget
+router.get('/assuntos', async (req, res) => {
+    try {
+        const doc = await db.collection('configuracoes').doc('assuntos').get();
+        if (doc.exists && doc.data().lista && doc.data().lista.length > 0) {
+            return res.json({ assuntos: doc.data().lista });
+        }
+        // Lista padrão de contingência
+        const listaPadrao = [
+            'Geral',
+            'Financeiro / Boletos',
+            'Manutenção / Ocorrências',
+            'Condomínio / Cadastro'
+        ];
+        res.json({ assuntos: listaPadrao });
+    } catch (erro) {
+        console.error('[ERRO buscar assuntos]', erro);
+        res.status(500).json({ assuntos: ['Geral', 'Financeiro / Boletos'] });
+    }
+});
 
 router.post('/iniciar', async (req, res) => {
     try {
@@ -80,7 +132,7 @@ router.get('/mensagem/cliente', async (req, res) => {
         const doc = await db.collection('chats').doc(String(chatId).trim()).get();
         if (doc.exists) {
             const data = doc.data();
-            return res.json({ mensagens: data.mensagens || [], status: data.status, nps: data.nps || null });
+            return res.json({ mensagens: data.mensagens || [], status: data.status, nps: data.nps || null, origem: data.origem });
         }
         res.json({ mensagens: [], status: null });
     } catch (erro) {
@@ -89,7 +141,6 @@ router.get('/mensagem/cliente', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Envio de Avaliação NPS do Cliente
 router.post('/atendimento/nps', async (req, res) => {
     try {
         const { chatId, nota, comentario } = req.body;
@@ -155,6 +206,7 @@ router.get('/atendimento/historico', async (req, res) => {
     }
 });
 
+// Assumir atendimento + Mensagem Automática Padrão de Boas-vindas
 router.post('/atendimento/assumir', async (req, res) => {
     try {
         const { chatId, atendente } = req.body;
@@ -164,10 +216,19 @@ router.post('/atendimento/assumir', async (req, res) => {
 
         if (doc.exists) {
             const nomeAtendente = atendente || 'Atendente Lello';
+            const mensagemBoasVindas = `Olá! Sou o ${nomeAtendente} responsável pelo seu atendimento. Como posso te ajudar hoje?`;
+
             await chatRef.update({ 
                 status: 'Em Atendimento',
-                atendente: nomeAtendente
+                atendente: nomeAtendente,
+                mensagens: admin.firestore.FieldValue.arrayUnion({
+                    de: 'atendente',
+                    texto: mensagemBoasVindas,
+                    autor: nomeAtendente,
+                    automatica: true
+                })
             });
+
             const conversaAtualizada = (await chatRef.get()).data();
             return res.json({ sucesso: true, conversa: conversaAtualizada });
         }
@@ -179,7 +240,32 @@ router.post('/atendimento/assumir', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Transferir Atendimento para outro Operador
+// Alterar Assunto/Tag do Atendimento
+router.post('/atendimento/alterar-assunto', async (req, res) => {
+    try {
+        const { chatId, novoAssunto, operador } = req.body;
+        const idLimpo = String(chatId).trim();
+        const chatRef = db.collection('chats').doc(idLimpo);
+        const doc = await chatRef.get();
+
+        if (doc.exists) {
+            const antigoAssunto = doc.data().origem;
+            await chatRef.update({
+                origem: novoAssunto,
+                mensagens: admin.firestore.FieldValue.arrayUnion({
+                    de: 'sistema',
+                    texto: `🏷️ Assunto alterado de "${antigoAssunto || 'Geral'}" para "${novoAssunto}" por ${operador || 'Operador'}.`
+                })
+            });
+            return res.json({ sucesso: true });
+        }
+        res.status(404).json({ sucesso: false, erro: 'Chat não encontrado' });
+    } catch (erro) {
+        console.error('[ERRO alterar assunto]', erro);
+        res.status(500).json({ sucesso: false });
+    }
+});
+
 router.post('/atendimento/transferir', async (req, res) => {
     try {
         const { chatId, novoAtendente, antigoAtendente } = req.body;
@@ -242,20 +328,28 @@ router.post('/atendimento/responder', async (req, res) => {
     }
 });
 
+// Encerrar atendimento com Tabulação (Resolvido / Não Resolvido)
 router.post('/atendimento/encerrar', async (req, res) => {
     try {
-        const { chatId } = req.body;
+        const { chatId, resolvido, motivoNaoResolvido } = req.body;
         const idLimpo = String(chatId).trim();
         const chatRef = db.collection('chats').doc(idLimpo);
         const doc = await chatRef.get();
 
         if (doc.exists) {
+            const statusResolucao = resolvido ? 'Resolvido' : `Não Resolvido (${motivoNaoResolvido || 'Sem motivo'})`;
+
             await chatRef.update({ 
                 status: 'Encerrado',
+                tabulacao: {
+                    resolvido: Boolean(resolvido),
+                    motivoNaoResolvido: motivoNaoResolvido || null,
+                    encerradoEm: admin.firestore.FieldValue.serverTimestamp()
+                },
                 encerradoEm: admin.firestore.FieldValue.serverTimestamp(),
                 mensagens: admin.firestore.FieldValue.arrayUnion({ 
                     de: 'sistema', 
-                    texto: 'Atendimento encerrado pelo operador.' 
+                    texto: `Atendimento encerrado pelo operador. Tabulação: ${statusResolucao}` 
                 })
             });
             return res.json({ sucesso: true });
@@ -268,16 +362,18 @@ router.post('/atendimento/encerrar', async (req, res) => {
     }
 });
 
-// NOVAS ROTAS: Status de Presença do Operador & Lista para Transferência
+// Status de Presença do Operador
 router.post('/operador/status', async (req, res) => {
     try {
         const { email, nome, status } = req.body;
         if (!email) return res.status(400).json({ erro: 'Email do operador é obrigatório' });
 
-        const opRef = db.collection('operadores').doc(String(email).trim());
+        const emailLimpo = String(email).trim().toLowerCase();
+        const opRef = db.collection('operadores').doc(emailLimpo);
+
         await opRef.set({
-            email,
-            nome: nome || email,
+            email: emailLimpo,
+            nome: nome || emailLimpo,
             status: status || 'disponivel',
             atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
@@ -301,7 +397,6 @@ router.get('/operadores/lista', async (req, res) => {
     }
 });
 
-// NOVA ROTA: Obter Respostas Rápidas (Templates)
 router.get('/atendimento/respostas-rapidas', (req, res) => {
     const respostas = [
         { id: 1, titulo: '👋 Boas-vindas', texto: 'Olá! Sou o atendente responsável pelo seu atendimento. Como posso te ajudar hoje?' },
@@ -310,6 +405,101 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
         { id: 4, titulo: '✅ Encerramento', texto: 'Foi um prazer te atender! Se precisar de algo mais, estamos à disposição. Tenha um excelente dia!' }
     ];
     res.json({ respostas });
+});
+
+// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO) ---
+
+// Cadastrar / Editar Colaborador com Múltiplos Assuntos
+router.post('/admin/operadores/salvar', async (req, res) => {
+    try {
+        const { email, nome, funcao, assuntos } = req.body;
+        if (!email) return res.status(400).json({ erro: 'Email é obrigatório' });
+
+        const emailLimpo = String(email).trim().toLowerCase();
+        const opRef = db.collection('operadores').doc(emailLimpo);
+
+        await opRef.set({
+            email: emailLimpo,
+            nome: nome || emailLimpo.split('@')[0],
+            funcao: funcao || 'colaborador',
+            assuntos: Array.isArray(assuntos) ? assuntos : [],
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        res.json({ sucesso: true });
+    } catch (erro) {
+        console.error('[ERRO salvar operador]', erro);
+        res.status(500).json({ erro: 'Erro ao salvar colaborador' });
+    }
+});
+
+// Excluir Colaborador
+router.delete('/admin/operadores', async (req, res) => {
+    try {
+        const { email } = req.query;
+        if (!email) return res.status(400).json({ erro: 'Email é obrigatório' });
+
+        await db.collection('operadores').doc(String(email).trim().toLowerCase()).delete();
+        res.json({ sucesso: true });
+    } catch (erro) {
+        console.error('[ERRO excluir operador]', erro);
+        res.status(500).json({ erro: 'Erro ao excluir colaborador' });
+    }
+});
+
+// Salvar Lista de Assuntos do Widget
+router.post('/admin/assuntos/salvar', async (req, res) => {
+    try {
+        const { lista } = req.body;
+        if (!Array.isArray(lista)) return res.status(400).json({ erro: 'Lista de assuntos inválida' });
+
+        await db.collection('configuracoes').doc('assuntos').set({
+            lista,
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ sucesso: true });
+    } catch (erro) {
+        console.error('[ERRO salvar assuntos]', erro);
+        res.status(500).json({ erro: 'Erro ao salvar assuntos' });
+    }
+});
+
+// Obter e Salvar Motivos de Não-Resolução para Tabulação
+router.get('/admin/motivos', async (req, res) => {
+    try {
+        const doc = await db.collection('configuracoes').doc('motivos').get();
+        if (doc.exists && doc.data().lista) {
+            return res.json({ motivos: doc.data().lista });
+        }
+        const motivosPadrao = [
+            'Documentação Pendente do Cliente',
+            'Fora do Escopo de Atendimento',
+            'Aguardando Aprovação da Síndica',
+            'Problema Técnico no Sistema'
+        ];
+        res.json({ motivos: motivosPadrao });
+    } catch (erro) {
+        console.error('[ERRO obter motivos]', erro);
+        res.status(500).json({ motivos: [] });
+    }
+});
+
+router.post('/admin/motivos/salvar', async (req, res) => {
+    try {
+        const { lista } = req.body;
+        if (!Array.isArray(lista)) return res.status(400).json({ erro: 'Lista de motivos inválida' });
+
+        await db.collection('configuracoes').doc('motivos').set({
+            lista,
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.json({ sucesso: true });
+    } catch (erro) {
+        console.error('[ERRO salvar motivos]', erro);
+        res.status(500).json({ erro: 'Erro ao salvar motivos' });
+    }
 });
 
 module.exports = router;
