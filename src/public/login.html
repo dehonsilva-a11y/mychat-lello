@@ -16,7 +16,7 @@
     <div class="login-container">
         <div class="login-card">
             <div class="logo-area">
-                <img src="assets/logo.png" alt="Lello" class="login-logo">
+                <img id="login-logo-img" src="assets/logo.png" alt="Lello" class="login-logo">
                 <h2>Cockpit de Atendimento</h2>
             </div>
 
@@ -49,5 +49,16 @@
 
     <script src="js/prefixo.js"></script>
     <script src="js/auth.js"></script>
+
+    <script>
+        // Garante o carregamento do logo com o prefixo dinâmico de subpasta da Vercel
+        document.addEventListener('DOMContentLoaded', () => {
+            const logo = document.getElementById('login-logo-img');
+            if (logo) {
+                const prefixo = window.prefixoApp || '';
+                logo.src = prefixo ? prefixo + '/assets/logo.png' : 'assets/logo.png';
+            }
+        });
+    </script>
 </body>
 </html>
