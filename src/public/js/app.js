@@ -235,14 +235,69 @@ async function enviarAvaliacaoNPS() {
         const footerInput = document.getElementById('footer-input');
         if (footerInput) {
             footerInput.innerHTML = `
-                <div style="font-size: 12px; color: #15803d; text-align: center; width: 100%; padding: 8px; font-weight: bold;">
-                    ✅ Obrigado pela sua avaliação! Atendimento encerrado.
+                <div style="font-size: 12px; color: #15803d; text-align: center; width: 100%; padding: 8px; font-weight: bold; display: flex; flex-direction: column; gap: 8px;">
+                    <span>✅ Obrigado pela sua avaliação! Atendimento encerrado.</span>
+                    <button onclick="reiniciarAtendimento()" style="background: #A00028; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;">🔄 Iniciar Novo Atendimento</button>
                 </div>
             `;
         }
     } catch (erro) {
         console.error('Erro ao enviar NPS:', erro);
     }
+}
+
+function reiniciarAtendimento() {
+    idClienteAtual = null;
+    npsExibido = false;
+
+    // Limpa mensagens do chat e restaura o formulário de triagem
+    const chatBody = document.getElementById('chat-messages');
+    if (chatBody) {
+        chatBody.innerHTML = `
+            <div id="form-triagem" class="form-triagem-box">
+                <h4 id="titulo-triagem">${(ctxVerificado && ctxEmail) ? 'Selecione o assunto do atendimento' : 'Preencha os seus dados'}</h4>
+                
+                <div class="campo-triagem" id="box-triagem-nome" style="${(ctxVerificado && ctxEmail) ? 'display: none;' : ''}">
+                    <label for="triagem-nome">Nome *</label>
+                    <input type="text" id="triagem-nome" placeholder="Seu nome" value="${ctxNome}">
+                </div>
+                
+                <div class="campo-triagem" id="box-triagem-email" style="${(ctxVerificado && ctxEmail) ? 'display: none;' : ''}">
+                    <label for="triagem-email">E-mail *</label>
+                    <input type="email" id="triagem-email" placeholder="seu@email.com" value="${ctxEmail}">
+                </div>
+
+                <div class="campo-triagem">
+                    <label for="triagem-assunto">Assunto *</label>
+                    <select id="triagem-assunto">
+                        <option value="">A carregar assuntos...</option>
+                    </select>
+                </div>
+            </div>
+        `;
+    }
+
+    // Restaura o estado e layout dos rodapés
+    const footerInput = document.getElementById('footer-input');
+    const footerIniciar = document.getElementById('footer-iniciar');
+
+    if (footerInput) {
+        footerInput.style.display = 'none';
+        footerInput.style.flexDirection = 'row';
+        footerInput.style.padding = '10px 12px';
+        footerInput.innerHTML = `
+            <input type="text" id="input-mensagem" placeholder="Escreva a sua mensagem..." onkeypress="tratarKeyPress(event)">
+            <button class="btn-send" onclick="enviarMensagem()">Enviar</button>
+        `;
+    }
+    if (footerIniciar) footerIniciar.style.display = 'flex';
+
+    // Recarrega os assuntos na triagem
+    carregarAssuntosTriagem();
+
+    // Reativa o polling do servidor
+    if (intervalPolling) clearInterval(intervalPolling);
+    intervalPolling = setInterval(carregarRespostasServidor, 1500);
 }
 
 function tratarKeyPress(event) {
