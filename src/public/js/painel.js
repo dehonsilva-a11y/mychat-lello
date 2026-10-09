@@ -339,21 +339,38 @@ function renderizarFila(fila) {
     });
 }
 
+// RENDERIZAÇÃO APENAS DOS ATENDIMENTOS PERTENCENTES AO OPERADOR LOGADO
 function renderizarAtivos(ativos) {
     const container = document.getElementById('lista-ativos');
     const countElement = document.getElementById('count-ativos');
+    const meuNome = obterNomeOperador();
 
-    if (countElement) countElement.innerText = ativos.length;
+    // Filtra apenas os chamados onde o atendente atribuído é o operador logado
+    const meusAtendimentos = ativos.filter(chat => chat.atendente === meuNome);
+
+    if (countElement) countElement.innerText = meusAtendimentos.length;
     if (!container) return;
+
+    // Se o chat atualmente aberto no painel deixou de pertencer ao operador, fecha o chat no ecrã
+    if (chatSelecionadoId && chatSelecionadoStatus === 'Em Atendimento') {
+        const aindaMeu = meusAtendimentos.some(c => c.id === chatSelecionadoId);
+        if (!aindaMeu) {
+            chatSelecionadoId = null;
+            const chatVazio = document.getElementById('chat-vazio');
+            const chatAtivoContainer = document.getElementById('chat-ativo-container');
+            if (chatVazio) chatVazio.style.display = 'flex';
+            if (chatAtivoContainer) chatAtivoContainer.style.display = 'none';
+        }
+    }
 
     container.innerHTML = '';
 
-    if (ativos.length === 0) {
+    if (meusAtendimentos.length === 0) {
         container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px;">Nenhum atendimento em andamento</div>';
         return;
     }
 
-    ativos.forEach(chat => {
+    meusAtendimentos.forEach(chat => {
         const div = document.createElement('div');
         div.className = `card-chat ${chatSelecionadoId === chat.id ? 'ativo' : ''}`;
         div.onclick = () => selecionarChat(chat);
