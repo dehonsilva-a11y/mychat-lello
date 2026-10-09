@@ -56,11 +56,13 @@ router.get('/assuntos', async (req, res) => {
     }
 });
 
+// Iniciar Chat com suporte a Identidade & Cartão de Contexto ERP
 router.post('/iniciar', async (req, res) => {
     try {
-        const { nome, email, assunto, verificado, clienteId } = req.body;
+        const { nome, email, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
         const id = clienteId ? String(clienteId).trim() : ('cliente_' + Math.floor(Math.random() * 90000 + 10000));
-        const rotuloModo = verificado ? '[Verificado]' : '[Declarado]';
+        const isVerificado = Boolean(verificado && verificado !== 'false' && verificado !== false);
+        const rotuloModo = isVerificado ? '[Verificado]' : '[Declarado]';
 
         const chatRef = db.collection('chats').doc(id);
         const doc = await chatRef.get();
@@ -71,6 +73,12 @@ router.post('/iniciar', async (req, res) => {
                 nome: `${nome || 'Cliente'} ${rotuloModo}`,
                 email: email || 'Não informado',
                 origem: assunto || 'Geral',
+                verificado: isVerificado,
+                contexto: {
+                    contrato: contrato || 'Não informado',
+                    imovel: imovel || 'Não informado',
+                    origemUrl: origemUrl || 'Acesso Direto'
+                },
                 status: 'Aguardando',
                 atendente: null,
                 mensagens: [],

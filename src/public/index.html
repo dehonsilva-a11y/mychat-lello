@@ -16,7 +16,7 @@
     <div id="app-container">
         <div id="widget-chat" class="chat-container">
             <div class="chat-header">
-                <img id="logo-lello" alt="Lello" style="height: 24px;">
+                <img id="logo-lello" src="assets/logo.png" alt="Lello" style="height: 24px;">
                 <span>Mychat - Atendimento</span>
             </div>
 
@@ -24,21 +24,22 @@
             <div id="chat-messages" class="chat-body">
                 <!-- FORMULÁRIO DE TRIAGEM -->
                 <div id="form-triagem" class="form-triagem-box">
-                    <h4>Preencha os seus dados</h4>
-                    <div class="campo-triagem">
+                    <h4 id="titulo-triagem">Preencha os seus dados</h4>
+                    
+                    <div class="campo-triagem" id="box-triagem-nome">
                         <label for="triagem-nome">Nome *</label>
                         <input type="text" id="triagem-nome" placeholder="Seu nome">
                     </div>
-                    <div class="campo-triagem">
+                    
+                    <div class="campo-triagem" id="box-triagem-email">
                         <label for="triagem-email">E-mail *</label>
                         <input type="email" id="triagem-email" placeholder="seu@email.com">
                     </div>
+
                     <div class="campo-triagem">
                         <label for="triagem-assunto">Assunto *</label>
                         <select id="triagem-assunto">
-                            <option value="Financeiro">Financeiro / Boletos</option>
-                            <option value="Locação">Locação</option>
-                            <option value="Condomínios">Condomínios</option>
+                            <option value="">A carregar assuntos...</option>
                         </select>
                     </div>
                 </div>

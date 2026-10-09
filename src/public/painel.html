@@ -105,19 +105,47 @@
                         </div>
                     </div>
 
-                    <!-- Mensagens com balões e identificação visual -->
-                    <div id="painel-messages" class="chat-messages-operador"></div>
+                    <!-- Conteúdo: Mensagens + Cartão de Contexto ERP -->
+                    <div style="display: flex; flex: 1; overflow: hidden;">
+                        <!-- Coluna do Chat (Mensagens, Templates, Resposta) -->
+                        <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                            <div id="painel-messages" class="chat-messages-operador"></div>
 
-                    <!-- Seção de Respostas Rápidas (Templates) -->
-                    <div id="area-respostas-rapidas" class="respostas-rapidas-bar">
-                        <span style="font-size: 11px; font-weight: 600; color: #64748b; white-space: nowrap;">⚡ Respostas Rápidas:</span>
-                        <div id="lista-respostas-rapidas" class="chips-container"></div>
-                    </div>
+                            <div id="area-respostas-rapidas" class="respostas-rapidas-bar">
+                                <span style="font-size: 11px; font-weight: 600; color: #64748b; white-space: nowrap;">⚡ Respostas Rápidas:</span>
+                                <div id="lista-respostas-rapidas" class="chips-container"></div>
+                            </div>
 
-                    <!-- Rodapé de Input -->
-                    <div class="chat-footer-operador" id="area-resposta-operador">
-                        <input type="text" id="input-resposta-operador" placeholder="Escreva a resposta para o cliente..." onkeypress="tratarKeyPressOperador(event)">
-                        <button class="btn-send-operador" onclick="enviarRespostaOperador()">Enviar Resposta</button>
+                            <div class="chat-footer-operador" id="area-resposta-operador">
+                                <input type="text" id="input-resposta-operador" placeholder="Escreva a resposta para o cliente..." onkeypress="tratarKeyPressOperador(event)">
+                                <button class="btn-send-operador" onclick="enviarRespostaOperador()">Enviar Resposta</button>
+                            </div>
+                        </div>
+
+                        <!-- Coluna Direita: Cartão de Contexto do ERP -->
+                        <aside style="width: 250px; background: #ffffff; border-left: 1px solid #e2e8f0; padding: 16px; font-size: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+                            <h4 style="font-size: 13px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; font-weight: 700;">📋 Cartão de Contexto ERP</h4>
+                            
+                            <div>
+                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Status de Identidade:</span>
+                                <div><strong id="ctx-selo-verificado" style="color: #16a34a; font-size: 12px;">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Número do Contrato:</span>
+                                <div><strong id="ctx-contrato" style="color: #0f172a;">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Imóvel / Unidade:</span>
+                                <div><strong id="ctx-imovel" style="color: #0f172a;">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Página de Origem:</span>
+                                <div id="ctx-origem-url" style="word-break: break-all; font-size: 11px; color: #0284c7; margin-top: 2px;">-</div>
+                            </div>
+                        </aside>
                     </div>
                 </div>
             </main>

@@ -408,6 +408,20 @@ function selecionarChat(chat) {
     if (nomeClienteAtivo) nomeClienteAtivo.innerText = chat.nome;
     if (selectTag) selectTag.value = chat.origem || 'Geral';
 
+    // PREENCHIMENTO DO CARTÃO DE CONTEXTO ERP
+    const seloElem = document.getElementById('ctx-selo-verificado');
+    const contratoElem = document.getElementById('ctx-contrato');
+    const imovelElem = document.getElementById('ctx-imovel');
+    const origemUrlElem = document.getElementById('ctx-origem-url');
+
+    if (seloElem) {
+        seloElem.innerText = chat.verificado ? '🟢 Verificado via Portal' : '⚪ Declarado';
+        seloElem.style.color = chat.verificado ? '#16a34a' : '#64748b';
+    }
+    if (contratoElem) contratoElem.innerText = (chat.contexto && chat.contexto.contrato) || 'Não informado';
+    if (imovelElem) imovelElem.innerText = (chat.contexto && chat.contexto.imovel) || 'Não informado';
+    if (origemUrlElem) origemUrlElem.innerText = (chat.contexto && chat.contexto.origemUrl) || 'Acesso Direto';
+
     if (chat.nps && chat.nps.nota) {
         if (badgeNps) {
             badgeNps.innerText = `⭐ Nota: ${chat.nps.nota}/5`;

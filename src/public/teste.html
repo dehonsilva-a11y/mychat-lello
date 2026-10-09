@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página de Teste do Mychat Widget</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f8fafc; }
+        .card { background: white; padding: 24px; border-radius: 8px; max-width: 600px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Página de Teste - Mychat</h1>
+        <p>Esta página simula o ambiente do morador logado no site/portal.</p>
+        <p>O botão flutuante deve aparecer no canto inferior direito.</p>
+    </div>
+
+    <!-- Script de Teste do Widget -->
+    <script>
+      (function(w, d, s, o, f, js, fjs) {
+        w['MychatObject'] = o;
+        w[o] = w[o] || function() { (w[o].q = w[o].q || []).push(arguments) };
+        js = d.createElement(s); fjs = d.getElementsByTagName(s)[0];
+        js.id = o; js.src = f; js.async = 1; fjs.parentNode.insertBefore(js, fjs);
+      })(window, document, 'script', 'mychat', '/js/widget.js');
+
+      // Simulação de dados verificados do morador
+      mychat('init', {
+        appUrl: window.location.origin,
+        cliente: {
+          nome: "Carlos Eduardo (Teste)",
+          email: "carlos.teste@lello.com.br",
+          contrato: "LC-2026-99881",
+          imovel: "Apto 42 - Bloco B"
+        }
+      });
+    </script>
+</body>
+</html>

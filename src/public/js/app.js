@@ -3,38 +3,86 @@ let intervalPolling = null;
 let npsExibido = false;
 let notaSelecionada = 5;
 
-// Inicia o polling contínuo para procurar respostas do atendente
+// Captura Parâmetros de Contexto passados pela URL (via widget.js / teste.html / HubSpot)
+const urlParams = new URLSearchParams(window.location.search);
+const ctxNome = urlParams.get('nome') || '';
+const ctxEmail = urlParams.get('email') || '';
+const ctxContrato = urlParams.get('contrato') || '';
+const ctxImovel = urlParams.get('imovel') || '';
+const ctxOrigemUrl = urlParams.get('origemUrl') || '';
+const ctxVerificado = urlParams.get('verificado') === 'true';
+
+// Inicialização e Leitura do Contexto ao carregar
+document.addEventListener('DOMContentLoaded', () => {
+    carregarAssuntosTriagem();
+
+    // Preenche campos de triagem caso venham na URL
+    const nomeInput = document.getElementById('triagem-nome');
+    const emailInput = document.getElementById('triagem-email');
+
+    if (nomeInput && ctxNome) nomeInput.value = ctxNome;
+    if (emailInput && ctxEmail) emailInput.value = ctxEmail;
+
+    // Se o cliente for verificado (com e-mail informado), oculta a coleta de nome e e-mail
+    if (ctxVerificado && ctxEmail) {
+        const boxNome = document.getElementById('box-triagem-nome');
+        const boxEmail = document.getElementById('box-triagem-email');
+        if (boxNome) boxNome.style.display = 'none';
+        if (boxEmail) boxEmail.style.display = 'none';
+        
+        const tituloTriagem = document.getElementById('titulo-triagem');
+        if (tituloTriagem) tituloTriagem.innerText = 'Selecione o assunto do atendimento';
+    }
+});
+
+// Polling contínuo para verificar respostas do atendente
 intervalPolling = setInterval(carregarRespostasServidor, 1500);
+
+async function carregarAssuntosTriagem() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/assuntos');
+        const dados = await res.json();
+        const select = document.getElementById('triagem-assunto');
+        if (select) {
+            select.innerHTML = '<option value="">Selecione o assunto...</option>';
+            (dados.assuntos || []).forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a;
+                opt.innerText = a;
+                select.appendChild(opt);
+            });
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar assuntos:', erro);
+    }
+}
 
 async function iniciarAtendimentoComTriagem() {
     const prefixo = window.prefixoApp || '';
-    const clienteVerificado = window.clienteLogado || null;
 
-    let dadosCliente = {};
+    const nomeInput = document.getElementById('triagem-nome');
+    const emailInput = document.getElementById('triagem-email');
+    const assuntoInput = document.getElementById('triagem-assunto');
 
-    if (clienteVerificado) {
-        dadosCliente = {
-            nome: clienteVerificado.nome,
-            email: clienteVerificado.email,
-            assunto: 'Portal Lello',
-            verificado: true
-        };
-    } else {
-        const nomeInput = document.getElementById('triagem-nome');
-        const emailInput = document.getElementById('triagem-email');
-        const assuntoInput = document.getElementById('triagem-assunto');
+    const nome = (nomeInput ? nomeInput.value.trim() : '') || ctxNome || 'Cliente';
+    const email = (emailInput ? emailInput.value.trim() : '') || ctxEmail || 'Não informado';
+    const assunto = (assuntoInput ? assuntoInput.value : '') || 'Geral';
 
-        const nome = nomeInput ? nomeInput.value.trim() : '';
-        const email = emailInput ? emailInput.value.trim() : '';
-        const assunto = assuntoInput ? assuntoInput.value : 'Geral';
-
-        if (!nome || !email) {
-            alert('Por favor, preencha o Nome e o E-mail para continuar.');
-            return;
-        }
-
-        dadosCliente = { nome, email, assunto, verificado: false };
+    if (!nome || !email || !assunto) {
+        alert('Por favor, preencha todos os campos e selecione um assunto para continuar.');
+        return;
     }
+
+    const dadosCliente = {
+        nome,
+        email,
+        assunto,
+        verificado: ctxVerificado,
+        contrato: ctxContrato,
+        imovel: ctxImovel,
+        origemUrl: ctxOrigemUrl
+    };
 
     const formTriagem = document.getElementById('form-triagem');
     if (formTriagem) formTriagem.style.display = 'none';
@@ -98,12 +146,12 @@ async function carregarRespostasServidor() {
         if (!chatBody) return;
 
         if (dados.mensagens && dados.mensagens.length > 0) {
-            // Preserva apenas os avisos iniciais de sistema (triagem/posição)
+            // Preserva avisos de sistema iniciais
             const msgsSistema = chatBody.querySelectorAll('.msg-sistema');
             chatBody.innerHTML = ''; 
             msgsSistema.forEach(m => chatBody.appendChild(m));
 
-            // Renderiza todas as mensagens recebidas do Firestore
+            // Renderiza as mensagens recebidas
             dados.mensagens.forEach(msg => {
                 const div = document.createElement('div');
                 if (msg.de === 'cliente') {
@@ -120,7 +168,7 @@ async function carregarRespostasServidor() {
             chatBody.scrollTop = chatBody.scrollHeight;
         }
 
-        // Se o atendimento foi encerrado no backend pelo operador
+        // Se o atendimento foi encerrado no backend
         if ((dados.status === 'Encerrado' || dados.status === 'encerrado') && !npsExibido) {
             if (intervalPolling) clearInterval(intervalPolling);
             npsExibido = true;
