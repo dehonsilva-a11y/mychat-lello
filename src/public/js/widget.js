@@ -4,12 +4,25 @@
         cliente: {}
     };
 
-    window.mychat = function(acao, opcoes) {
+    function executarComando(acao, opcoes) {
         if (acao === 'init') {
             config = Object.assign(config, opcoes);
             carregarWidgetHTML();
         }
+    }
+
+    // Captura o objeto mychat existente e processa chamadas em fila
+    const mychatStub = window.mychat;
+
+    // Redefine window.mychat para chamadas diretas futuras
+    window.mychat = function(acao, opcoes) {
+        executarComando(acao, opcoes);
     };
+
+    // Processa a fila de comandos acumulada antes do carregamento do script
+    if (mychatStub && Array.isArray(mychatStub.q)) {
+        mychatStub.q.forEach(args => executarComando(args[0], args[1]));
+    }
 
     function capturarContextoOrigem() {
         return {
@@ -23,10 +36,9 @@
     function carregarWidgetHTML() {
         if (document.getElementById('mychat-widget-button')) return;
 
-        // Trata a URL base para evitar erros de barra no final ou URL relativa
         const baseUrl = config.appUrl ? config.appUrl.replace(/\/$/, '') : window.location.origin;
 
-        // INJEÇÃO DO ARQUIVO CSS EXTERNO
+        // Injeção do ficheiro CSS
         const linkCss = document.createElement('link');
         linkCss.rel = 'stylesheet';
         linkCss.href = `${baseUrl}/css/widget.css`;
@@ -43,7 +55,6 @@
         const container = document.createElement('div');
         container.id = 'mychat-widget-container';
         
-        // Monta a URL com os parâmetros de contexto
         const contexto = capturarContextoOrigem();
         const nomeCliente = (config.cliente && config.cliente.nome && !config.cliente.nome.includes('{{')) ? config.cliente.nome : '';
         const emailCliente = (config.cliente && config.cliente.email && !config.cliente.email.includes('{{')) ? config.cliente.email : '';
