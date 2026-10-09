@@ -30,13 +30,16 @@
         <!-- Navegação por Abas -->
         <nav class="admin-nav">
             <button class="tab-btn active" onclick="alternarAba('dashboard')">📊 Dashboard / Métricas</button>
+            <button class="tab-btn" onclick="alternarAba('espiao')">🕵️‍♂️ Modo Espião / Chats</button>
             <button class="tab-btn" onclick="alternarAba('colaboradores')">👥 Colaboradores</button>
+            <button class="tab-btn" onclick="alternarAba('respostas')">⚡ Respostas Rápidas</button>
             <button class="tab-btn" onclick="alternarAba('assuntos')">🏷️ Assuntos da Triagem</button>
-            <button class="tab-btn" onclick="alternarAba('motivos')">📋 Motivos de Não-Resolução</button>
+            <button class="tab-btn" onclick="alternarAba('motivos')">📋 Motivos de Tabulação</button>
         </nav>
 
         <!-- Conteúdo Principal -->
         <main class="admin-body">
+            
             <!-- ABA 0: Dashboard de Métricas -->
             <section id="aba-dashboard" class="aba-conteudo active">
                 <div class="secao-header">
@@ -44,44 +47,44 @@
                         <h3>Dashboard de Performance & Satisfação</h3>
                         <p>Visão consolidada do volume de chamados, satisfação (NPS) e Tempo Médio de Atendimento (TMA).</p>
                     </div>
-                    <button class="btn-novo" style="background: #3b82f6;" onclick="carregarMetricasDashboard()">🔄 Atualizar Dados</button>
+                    <button class="btn-novo btn-atualizar-dash" onclick="carregarMetricasDashboard()">🔄 Atualizar Dados</button>
                 </div>
 
                 <!-- Grid de KPIs Gerais -->
                 <div class="kpi-grid">
                     <div class="kpi-card">
                         <span class="kpi-titulo">Média NPS</span>
-                        <strong id="kpi-nps-media" class="kpi-valor" style="color: #ca8a04;">-</strong>
+                        <strong id="kpi-nps-media" class="kpi-valor text-amarelo">-</strong>
                         <span id="kpi-nps-qtd" class="kpi-sub">0 avaliações</span>
                     </div>
 
                     <div class="kpi-card">
                         <span class="kpi-titulo">Tempo Médio (TMA)</span>
-                        <strong id="kpi-tma" class="kpi-valor" style="color: #2563eb;">- min</strong>
+                        <strong id="kpi-tma" class="kpi-valor text-azul">- min</strong>
                         <span class="kpi-sub">Tempo de resolução</span>
                     </div>
 
                     <div class="kpi-card">
                         <span class="kpi-titulo">Total de Chamados</span>
-                        <strong id="kpi-total" class="kpi-valor">0</strong>
+                        <strong id="kpi-total" class="kpi-valor text-escuro">0</strong>
                         <span class="kpi-sub">Geral registrado</span>
                     </div>
 
                     <div class="kpi-card">
                         <span class="kpi-titulo">Fila / Em Aberto</span>
-                        <strong id="kpi-fila" class="kpi-valor" style="color: #dc2626;">0</strong>
+                        <strong id="kpi-fila" class="kpi-valor text-vermelho">0</strong>
                         <span class="kpi-sub">Aguardando atendente</span>
                     </div>
 
                     <div class="kpi-card">
                         <span class="kpi-titulo">Em Atendimento</span>
-                        <strong id="kpi-em-atendimento" class="kpi-valor" style="color: #16a34a;">0</strong>
+                        <strong id="kpi-em-atendimento" class="kpi-valor text-verde">0</strong>
                         <span class="kpi-sub">Em andamento</span>
                     </div>
 
                     <div class="kpi-card">
                         <span class="kpi-titulo">Encerrados</span>
-                        <strong id="kpi-encerrados" class="kpi-valor" style="color: #64748b;">0</strong>
+                        <strong id="kpi-encerrados" class="kpi-valor text-cinza">0</strong>
                         <span class="kpi-sub">Finalizados</span>
                     </div>
                 </div>
@@ -89,7 +92,7 @@
                 <!-- Detalhes por Colaborador e por Assunto -->
                 <div class="dashboard-detalhes-grid">
                     <div class="card-admin">
-                        <h4 style="font-size: 14px; margin-bottom: 12px; color: #1e293b;">👨‍💼 Performance por Colaborador</h4>
+                        <h4 class="card-titulo-dash">👨‍💼 Performance por Colaborador</h4>
                         <table class="tabela-admin">
                             <thead>
                                 <tr>
@@ -106,7 +109,7 @@
                     </div>
 
                     <div class="card-admin">
-                        <h4 style="font-size: 14px; margin-bottom: 12px; color: #1e293b;">🏷️ Volume por Assunto/Tag</h4>
+                        <h4 class="card-titulo-dash">🏷️ Volume por Assunto/Tag</h4>
                         <table class="tabela-admin">
                             <thead>
                                 <tr>
@@ -122,7 +125,65 @@
                 </div>
             </section>
 
-            <!-- ABA 1: Gestão de Colaboradores -->
+            <!-- ABA 1: Modo Espião / Auditoria de Chats -->
+            <section id="aba-espiao" class="aba-conteudo" style="display: none; height: 100%;">
+                <div class="secao-header header-espiao">
+                    <div>
+                        <h3>🕵️‍♂️ Auditoria e Intervenção de Chats</h3>
+                        <p>Visualize e interaja em chats em tempo real ou consulte o histórico.</p>
+                    </div>
+                    <div class="espiao-filtros">
+                        <select id="filtro-status-espiao" onchange="carregarListaEspiao()">
+                            <option value="abertos">Chats Em Aberto / Fila</option>
+                            <option value="encerrados">Chats Encerrados</option>
+                        </select>
+                        <button class="btn-novo btn-atualizar-espiao" onclick="carregarListaEspiao()">🔄 Atualizar</button>
+                    </div>
+                </div>
+
+                <div class="espiao-layout">
+                    <!-- Coluna da Esquerda: Lista de Chats -->
+                    <div class="espiao-sidebar">
+                        <div class="espiao-busca">
+                            <input type="text" id="input-busca-espiao" placeholder="Buscar por nome ou e-mail..." oninput="filtrarListaEspiao()">
+                        </div>
+                        <div id="lista-chats-espiao" class="espiao-lista">
+                            <div class="espiao-msg-carregando">Carregando chats...</div>
+                        </div>
+                    </div>
+
+                    <!-- Coluna da Direita: Área da Conversa -->
+                    <div class="espiao-chat-area">
+                        <!-- Overlay de Chat Vazio -->
+                        <div id="espiao-vazio" class="espiao-vazio">
+                            Selecione um chat na lista ao lado para auditar.
+                        </div>
+
+                        <!-- Header do Chat Espião -->
+                        <div class="espiao-chat-header">
+                            <div>
+                                <strong id="espiao-nome-cliente" class="espiao-chat-header-nome">Cliente</strong>
+                                <span id="espiao-badge-status" class="espiao-badge"></span>
+                            </div>
+                            <div class="espiao-header-atendente">
+                                Atendente: <strong id="espiao-nome-atendente">Aberto</strong>
+                            </div>
+                        </div>
+
+                        <!-- Corpo de Mensagens -->
+                        <div id="espiao-mensagens" class="espiao-chat-mensagens">
+                        </div>
+
+                        <!-- Rodapé de Intervenção do Gestor -->
+                        <div id="espiao-footer" class="espiao-chat-footer">
+                            <input type="text" id="input-intervencao-gestor" placeholder="Mensagem de intervenção como Gestor..." onkeypress="tratarKeyPressGestor(event)">
+                            <button onclick="enviarMensagemIntervencao()">Enviar Mensagem</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ABA 2: Gestão de Colaboradores -->
             <section id="aba-colaboradores" class="aba-conteudo" style="display: none;">
                 <div class="secao-header">
                     <div>
@@ -153,7 +214,35 @@
                 </div>
             </section>
 
-            <!-- ABA 2: Assuntos da Triagem do Widget -->
+            <!-- ABA 3: Respostas Rápidas -->
+            <section id="aba-respostas" class="aba-conteudo" style="display: none;">
+                <div class="secao-header">
+                    <div>
+                        <h3>Gestão de Respostas Rápidas</h3>
+                        <p>Crie, edite e remova templates de mensagens rápidas para o Cockpit.</p>
+                    </div>
+                    <button class="btn-novo" onclick="abrirModalRespostaRapida()">+ Nova Resposta</button>
+                </div>
+
+                <div class="tabela-container">
+                    <table class="tabela-admin">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th class="col-texto-largo">Texto da Mensagem</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-respostas-body">
+                            <tr>
+                                <td colspan="3" class="td-carregando">A carregar respostas rápidas...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- ABA 4: Assuntos da Triagem do Widget -->
             <section id="aba-assuntos" class="aba-conteudo" style="display: none;">
                 <div class="secao-header">
                     <div>
@@ -171,7 +260,7 @@
                 </div>
             </section>
 
-            <!-- ABA 3: Motivos de Não-Resolução -->
+            <!-- ABA 5: Motivos de Não-Resolução -->
             <section id="aba-motivos" class="aba-conteudo" style="display: none;">
                 <div class="secao-header">
                     <div>
@@ -190,6 +279,8 @@
             </section>
         </main>
     </div>
+
+    <!-- Modais -->
 
     <!-- Modal para Adicionar/Editar Colaborador -->
     <div id="modal-operador" class="modal-overlay" style="display: none;">
@@ -217,13 +308,38 @@
                 <div class="campo-admin">
                     <label>Assuntos/Motivos Autorizados (Múltipla Escolha)</label>
                     <div id="container-checkboxes-assuntos" class="checkboxes-box">
-                        <span style="font-size: 11px; color: #94a3b8;">A carregar assuntos...</span>
+                        <span class="msg-carregando-modal">A carregar assuntos...</span>
                     </div>
                 </div>
 
                 <div class="modal-acoes">
                     <button type="button" class="btn-cancelar" onclick="fecharModalOperador()">Cancelar</button>
                     <button type="submit" class="btn-salvar">Salvar Colaborador</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Respostas Rápidas -->
+    <div id="modal-resposta-rapida" class="modal-overlay" style="display: none;">
+        <div class="modal-card-admin">
+            <h3 id="modal-titulo-resposta">Nova Resposta Rápida</h3>
+            <form onsubmit="salvarRespostaRapida(event)">
+                <input type="hidden" id="rr-id-edit">
+                
+                <div class="campo-admin">
+                    <label for="rr-titulo">Título Curto (Exibição no Botão)</label>
+                    <input type="text" id="rr-titulo" placeholder="Ex: Saudação Inicial" required>
+                </div>
+
+                <div class="campo-admin">
+                    <label for="rr-texto">Texto Completo da Mensagem</label>
+                    <textarea id="rr-texto" placeholder="Ex: Olá! Sou o atendente responsável. Como posso ajudar hoje?" required></textarea>
+                </div>
+
+                <div class="modal-acoes">
+                    <button type="button" class="btn-cancelar" onclick="fecharModalRespostaRapida()">Cancelar</button>
+                    <button type="submit" class="btn-salvar">Salvar Resposta</button>
                 </div>
             </form>
         </div>

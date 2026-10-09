@@ -1,6 +1,13 @@
 let listaAssuntosGlobal = [];
 let listaMotivosGlobal = [];
+let listaRespostasRapidas = [];
 let operadorEmEdicao = null;
+
+// Variáveis do Modo Espião
+let espiaoChatSelecionadoId = null;
+let espiaoIntervalPolling = null;
+let listaEspiaoCache = [];
+let espiaoUltimasMensagensCount = 0;
 
 // PROTEÇÃO DE ROTA E VERIFICAÇÃO DE PERFIL ADMIN
 auth.onAuthStateChanged(async user => {
@@ -56,7 +63,9 @@ function alternarAba(abaAtiva) {
     // Atualiza botão ativo (Mapeamento flexível por ID)
     const btnIdMap = {
         'dashboard': 'dash',
+        'espiao': 'espi',
         'colaboradores': 'colab',
+        'respostas': 'resp',
         'assuntos': 'assun',
         'motivos': 'motiv'
     };
@@ -65,21 +74,36 @@ function alternarAba(abaAtiva) {
     const btn = Array.from(document.querySelectorAll('.tab-btn')).find(b => b.innerText.toLowerCase().includes(prefixoAba));
     if (btn) btn.classList.add('active');
 
-    // Se clicou no dashboard, força a atualização dos dados
+    // Acionamentos específicos de cada aba
     if (abaAtiva === 'dashboard') {
         carregarMetricasDashboard();
+    }
+    
+    if (abaAtiva === 'espiao') {
+        carregarListaEspiao();
+        if (!espiaoIntervalPolling) {
+            espiaoIntervalPolling = setInterval(carregarMensagensEspiaoAtivo, 2000);
+        }
+    } else {
+        if (espiaoIntervalPolling) {
+            clearInterval(espiaoIntervalPolling);
+            espiaoIntervalPolling = null;
+        }
     }
 }
 
 // INICIALIZAÇÃO DE DADOS
 function inicializarPainelAdmin() {
     carregarMetricasDashboard();
+    carregarColaboradores();
+    carregarRespostasRapidas();
     carregarAssuntos();
     carregarMotivos();
-    carregarColaboradores();
 }
 
+// ============================================================================
 // --- GESTÃO DE MÉTRICAS (DASHBOARD) ---
+// ============================================================================
 
 async function carregarMetricasDashboard() {
     const prefixo = window.prefixoApp || '';
@@ -87,7 +111,6 @@ async function carregarMetricasDashboard() {
         const res = await fetch(prefixo + '/api/admin/metrics');
         const dados = await res.json();
 
-        // 1. Atualizar KPIs Superiores
         document.getElementById('kpi-total').innerText = dados.total || 0;
         document.getElementById('kpi-fila').innerText = dados.fila || 0;
         document.getElementById('kpi-em-atendimento').innerText = dados.emAtendimento || 0;
@@ -98,7 +121,6 @@ async function carregarMetricasDashboard() {
         
         document.getElementById('kpi-tma').innerText = `${dados.tmaMinutos || 0} min`;
 
-        // 2. Atualizar Tabela de Operadores
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
         tbodyOp.innerHTML = '';
         if (!dados.porOperador || dados.porOperador.length === 0) {
@@ -116,13 +138,11 @@ async function carregarMetricasDashboard() {
             });
         }
 
-        // 3. Atualizar Tabela de Assuntos
         const tbodyAssunto = document.getElementById('tabela-metricas-assuntos');
         tbodyAssunto.innerHTML = '';
         if (!dados.porAssunto || dados.porAssunto.length === 0) {
             tbodyAssunto.innerHTML = '<tr><td colspan="2" class="td-carregando">Sem dados no momento.</td></tr>';
         } else {
-            // Ordenar por volume decrescente
             const assuntosOrdenados = dados.porAssunto.sort((a, b) => b.quantidade - a.quantidade);
             assuntosOrdenados.forEach(item => {
                 const tr = document.createElement('tr');
@@ -138,7 +158,9 @@ async function carregarMetricasDashboard() {
     }
 }
 
+// ============================================================================
 // --- GESTÃO DE COLABORADORES ---
+// ============================================================================
 
 async function carregarColaboradores() {
     const prefixo = window.prefixoApp || '';
@@ -174,8 +196,8 @@ function renderizarColaboradores(lista) {
             <td style="font-size: 11px; color: #64748b; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${assuntosTexto}">${assuntosTexto}</td>
             <td style="font-size: 11px;">${statusEmoji} ${op.status || 'offline'}</td>
             <td>
-                <button onclick='abrirModalOperador(${JSON.stringify(op).replace(/'/g, "\\'")})' style="background:#3b82f6; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer; margin-right:4px;">Editar</button>
-                <button onclick="excluirOperador('${op.email}')" style="background:#ef4444; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">Excluir</button>
+                <button class="btn-editar-item" onclick='abrirModalOperador(${JSON.stringify(op).replace(/'/g, "\\'")})'>Editar</button>
+                <button class="btn-remover-item" onclick="excluirOperador('${op.email}')">Excluir</button>
             </td>
         `;
         tbody.appendChild(tr);
@@ -190,17 +212,15 @@ function abrirModalOperador(operador = null) {
     const inputEmail = document.getElementById('op-email');
     const selectFuncao = document.getElementById('op-funcao');
 
-    // Popula checkboxes com os assuntos existentes
     renderizarCheckboxesAssuntos();
 
     if (operador) {
         titulo.innerText = 'Editar Colaborador';
         inputNome.value = operador.nome || '';
         inputEmail.value = operador.email || '';
-        inputEmail.disabled = true; // Não permite alterar email na edição
+        inputEmail.disabled = true; 
         selectFuncao.value = operador.funcao || 'colaborador';
 
-        // Marca as checkboxes que o operador já tem atribuídas
         if (operador.assuntos) {
             setTimeout(() => {
                 const checkboxes = document.querySelectorAll('.check-assunto');
@@ -252,7 +272,6 @@ async function salvarOperador(event) {
     const email = document.getElementById('op-email').value.trim();
     const funcao = document.getElementById('op-funcao').value;
     
-    // Recolhe os assuntos selecionados
     const checkboxes = document.querySelectorAll('.check-assunto:checked');
     const assuntos = Array.from(checkboxes).map(cb => cb.value);
 
@@ -285,7 +304,305 @@ async function excluirOperador(email) {
     }
 }
 
-// --- GESTÃO DE ASSUNTOS (WIDGET) ---
+// ============================================================================
+// --- GESTÃO DE RESPOSTAS RÁPIDAS ---
+// ============================================================================
+
+async function carregarRespostasRapidas() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const resposta = await fetch(prefixo + '/api/atendimento/respostas-rapidas');
+        const dados = await resposta.json();
+        listaRespostasRapidas = dados.respostas || [];
+        renderizarListaRespostasRapidas();
+    } catch (erro) {
+        console.error('Erro ao carregar respostas rápidas:', erro);
+    }
+}
+
+function renderizarListaRespostasRapidas() {
+    const tbody = document.getElementById('tabela-respostas-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+    if (listaRespostasRapidas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="td-carregando">Nenhuma resposta rápida cadastrada.</td></tr>';
+        return;
+    }
+
+    listaRespostasRapidas.forEach(rr => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${rr.titulo}</strong></td>
+            <td style="white-space: pre-wrap; font-size: 12px; color: #475569;">${rr.texto}</td>
+            <td>
+                <button class="btn-editar-item" onclick='abrirModalRespostaRapida(${JSON.stringify(rr).replace(/'/g, "\\'")})'>Editar</button>
+                <button class="btn-remover-item" onclick="excluirRespostaRapida('${rr.id}')">Remover</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function abrirModalRespostaRapida(rr = null) {
+    const modal = document.getElementById('modal-resposta-rapida');
+    const titulo = document.getElementById('modal-titulo-resposta');
+    const inputId = document.getElementById('rr-id-edit');
+    const inputTitulo = document.getElementById('rr-titulo');
+    const inputTexto = document.getElementById('rr-texto');
+
+    if (rr) {
+        titulo.innerText = 'Editar Resposta Rápida';
+        inputId.value = rr.id;
+        inputTitulo.value = rr.titulo;
+        inputTexto.value = rr.texto;
+    } else {
+        titulo.innerText = 'Nova Resposta Rápida';
+        inputId.value = '';
+        inputTitulo.value = '';
+        inputTexto.value = '';
+    }
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function fecharModalRespostaRapida() {
+    const modal = document.getElementById('modal-resposta-rapida');
+    if (modal) modal.style.display = 'none';
+}
+
+async function salvarRespostaRapida(event) {
+    event.preventDefault();
+    const prefixo = window.prefixoApp || '';
+    
+    const id = document.getElementById('rr-id-edit').value;
+    const titulo = document.getElementById('rr-titulo').value.trim();
+    const texto = document.getElementById('rr-texto').value.trim();
+
+    try {
+        await fetch(prefixo + '/api/admin/respostas-rapidas/salvar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id || null, titulo, texto })
+        });
+        fecharModalRespostaRapida();
+        carregarRespostasRapidas();
+    } catch (erro) {
+        console.error('Erro ao salvar resposta rápida:', erro);
+        alert('Erro ao salvar resposta rápida.');
+    }
+}
+
+async function excluirRespostaRapida(id) {
+    if (!confirm('Tem a certeza que deseja remover esta resposta rápida?')) return;
+    const prefixo = window.prefixoApp || '';
+    try {
+        await fetch(prefixo + `/api/admin/respostas-rapidas?id=${id}`, {
+            method: 'DELETE'
+        });
+        carregarRespostasRapidas();
+    } catch (erro) {
+        console.error('Erro ao excluir resposta rápida:', erro);
+    }
+}
+
+// ============================================================================
+// --- MODO ESPIÃO E AUDITORIA DE CHATS ---
+// ============================================================================
+
+async function carregarListaEspiao() {
+    const prefixo = window.prefixoApp || '';
+    const filtroStatus = document.getElementById('filtro-status-espiao').value; 
+    
+    try {
+        let url = prefixo;
+        if (filtroStatus === 'abertos') {
+            url += `/api/atendimento/lista?_t=${Date.now()}`;
+        } else {
+            url += `/api/atendimento/historico?_t=${Date.now()}`;
+        }
+
+        const res = await fetch(url, { cache: 'no-store' });
+        const dados = await res.json();
+
+        if (filtroStatus === 'abertos') {
+            // Combina os que estão na fila (pendentes) com os Em Atendimento
+            listaEspiaoCache = [...(dados.fila || []), ...(dados.emAtendimento || [])];
+        } else {
+            listaEspiaoCache = dados.historico || [];
+        }
+
+        filtrarListaEspiao();
+    } catch (erro) {
+        console.error('Erro ao carregar chats para espionagem:', erro);
+    }
+}
+
+function filtrarListaEspiao() {
+    const termo = (document.getElementById('input-busca-espiao')?.value || '').toLowerCase();
+    
+    const filtrados = listaEspiaoCache.filter(chat => 
+        (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
+        (chat.email && chat.email.toLowerCase().includes(termo)) ||
+        (chat.atendente && chat.atendente.toLowerCase().includes(termo))
+    );
+
+    renderizarListaEspiao(filtrados);
+}
+
+function renderizarListaEspiao(lista) {
+    const container = document.getElementById('lista-chats-espiao');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    if (lista.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px;">Nenhum chat encontrado.</div>';
+        return;
+    }
+
+    lista.forEach(chat => {
+        const div = document.createElement('div');
+        div.className = `espiao-card ${espiaoChatSelecionadoId === chat.id ? 'ativo' : ''}`;
+        
+        const corStatus = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+        
+        div.innerHTML = `
+            <div class="espiao-card-header">
+                <span class="espiao-card-nome">${chat.nome}</span>
+                <span class="espiao-card-status" style="color: ${corStatus};">${chat.status}</span>
+            </div>
+            <div class="espiao-card-atendente">Op: ${chat.atendente || 'Sem atribuição'}</div>
+        `;
+        div.onclick = () => selecionarChatEspiao(chat);
+        container.appendChild(div);
+    });
+}
+
+function selecionarChatEspiao(chat) {
+    espiaoChatSelecionadoId = chat.id;
+    espiaoUltimasMensagensCount = 0;
+    
+    // Atualiza Layout Visual da Lista
+    filtrarListaEspiao();
+
+    document.getElementById('espiao-vazio').style.display = 'none';
+    
+    document.getElementById('espiao-nome-cliente').innerText = chat.nome;
+    document.getElementById('espiao-nome-atendente').innerText = chat.atendente || 'Fila / Pendente';
+    
+    const badge = document.getElementById('espiao-badge-status');
+    badge.innerText = chat.status;
+    badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
+    badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+
+    // Mostra input de intervenção apenas se não estiver encerrado
+    const footer = document.getElementById('espiao-footer');
+    if (chat.status === 'Encerrado') {
+        footer.style.display = 'none';
+    } else {
+        footer.style.display = 'flex';
+    }
+
+    document.getElementById('espiao-mensagens').innerHTML = '';
+    carregarMensagensEspiaoAtivo();
+}
+
+async function carregarMensagensEspiaoAtivo() {
+    if (!espiaoChatSelecionadoId) return;
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        const url = prefixo + `/api/mensagem/cliente?chatId=${espiaoChatSelecionadoId}&_t=${Date.now()}`;
+        const resposta = await fetch(url, { cache: 'no-store' });
+        const dados = await resposta.json();
+
+        const mensagens = dados.mensagens || [];
+        const container = document.getElementById('espiao-mensagens');
+        if (!container) return;
+
+        // Se houver novas mensagens, redesenha
+        if (mensagens.length !== espiaoUltimasMensagensCount) {
+            container.innerHTML = '';
+            mensagens.forEach(msg => {
+                desenharBalaoEspiao(msg.texto, msg.de, msg.autor, container);
+            });
+            espiaoUltimasMensagensCount = mensagens.length;
+            container.scrollTop = container.scrollHeight;
+        }
+
+    } catch (erro) {
+        console.error('Erro ao ler mensagens do espião:', erro);
+    }
+}
+
+async function enviarMensagemIntervencao() {
+    if (!espiaoChatSelecionadoId) return;
+    
+    const input = document.getElementById('input-intervencao-gestor');
+    const texto = input.value.trim();
+    if (!texto) return;
+
+    const prefixo = window.prefixoApp || '';
+    const nomeGestorLogado = document.getElementById('nome-admin-display').innerText;
+
+    input.value = '';
+
+    try {
+        await fetch(prefixo + '/api/atendimento/responder', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chatId: espiaoChatSelecionadoId, 
+                mensagem: texto,
+                // Prefixo especial para o Gestor
+                atendente: `Gestor: ${nomeGestorLogado}`
+            })
+        });
+        carregarMensagensEspiaoAtivo();
+    } catch (erro) {
+        console.error('Erro na intervenção do gestor:', erro);
+    }
+}
+
+function tratarKeyPressGestor(event) {
+    if (event.key === 'Enter') {
+        enviarMensagemIntervencao();
+    }
+}
+
+function desenharBalaoEspiao(texto, remetente, autor, container) {
+    const isCliente = remetente === 'cliente';
+    const isSistema = remetente === 'sistema';
+    const isGestor = autor && autor.startsWith('Gestor');
+
+    if (isSistema) {
+        const div = document.createElement('div');
+        div.className = 'msg-sistema';
+        div.innerText = texto;
+        container.appendChild(div);
+        return;
+    }
+
+    const wrapper = document.createElement('div');
+    
+    if (isCliente) wrapper.className = 'msg-wrapper cliente';
+    else if (isGestor) wrapper.className = 'msg-wrapper gestor';
+    else wrapper.className = 'msg-wrapper atendente';
+
+    const autorTexto = isCliente ? '👤 Cliente' : (isGestor ? `🛡️ ${autor}` : `👨‍💼 ${autor || 'Operador'}`);
+    
+    wrapper.innerHTML = `
+        <div class="msg-meta">${autorTexto}</div>
+        <div class="msg-bubble">${texto}</div>
+    `;
+    container.appendChild(wrapper);
+}
+
+
+// ============================================================================
+// --- GESTÃO DE ASSUNTOS E MOTIVOS (CRUD SIMPLES) ---
+// ============================================================================
 
 async function carregarAssuntos() {
     const prefixo = window.prefixoApp || '';
@@ -347,8 +664,6 @@ async function salvarAssuntosNoBanco() {
         console.error('Erro ao salvar assuntos:', erro);
     }
 }
-
-// --- GESTÃO DE MOTIVOS DE NÃO-RESOLUÇÃO ---
 
 async function carregarMotivos() {
     const prefixo = window.prefixoApp || '';
