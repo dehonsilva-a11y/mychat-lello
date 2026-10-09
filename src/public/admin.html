@@ -133,10 +133,17 @@
                         <p>Visualize e interaja em chats em tempo real ou consulte o histórico.</p>
                     </div>
                     <div class="espiao-filtros">
-                        <select id="filtro-status-espiao" onchange="carregarListaEspiao()">
+                        <!-- Filtro de Status -->
+                        <select id="filtro-status-espiao" class="select-moderno" onchange="carregarListaEspiao()">
                             <option value="abertos">Chats Em Aberto / Fila</option>
                             <option value="encerrados">Chats Encerrados</option>
                         </select>
+
+                        <!-- Filtro de Assunto -->
+                        <select id="filtro-assunto-espiao" class="select-moderno" onchange="filtrarListaEspiao()">
+                            <option value="todos">Todos os Assuntos</option>
+                        </select>
+
                         <button class="btn-novo btn-atualizar-espiao" onclick="carregarListaEspiao()">🔄 Atualizar</button>
                     </div>
                 </div>

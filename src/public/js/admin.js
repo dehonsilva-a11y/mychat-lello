@@ -440,12 +440,21 @@ async function carregarListaEspiao() {
 
 function filtrarListaEspiao() {
     const termo = (document.getElementById('input-busca-espiao')?.value || '').toLowerCase();
+    const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
     
-    const filtrados = listaEspiaoCache.filter(chat => 
-        (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
-        (chat.email && chat.email.toLowerCase().includes(termo)) ||
-        (chat.atendente && chat.atendente.toLowerCase().includes(termo))
-    );
+    const filtrados = listaEspiaoCache.filter(chat => {
+        // 1. Filtro de Busca Por Texto (Nome, E-mail ou Operador/Atendente)
+        const matchTexto = 
+            (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
+            (chat.email && chat.email.toLowerCase().includes(termo)) ||
+            (chat.atendente && chat.atendente.toLowerCase().includes(termo));
+
+        // 2. Filtro Por Assunto/Tag
+        const assuntoChat = chat.origem || 'Geral';
+        const matchAssunto = (filtroAssunto === 'todos') || (assuntoChat === filtroAssunto);
+
+        return matchTexto && matchAssunto;
+    });
 
     renderizarListaEspiao(filtrados);
 }
@@ -611,9 +620,23 @@ async function carregarAssuntos() {
         const dados = await res.json();
         listaAssuntosGlobal = dados.assuntos || [];
         renderizarAssuntos(listaAssuntosGlobal);
+        preencherFiltroAssuntosEspiao();
     } catch (erro) {
         console.error('Erro ao carregar assuntos:', erro);
     }
+}
+
+function preencherFiltroAssuntosEspiao() {
+    const select = document.getElementById('filtro-assunto-espiao');
+    if (!select) return;
+
+    select.innerHTML = '<option value="todos">Todos os Assuntos</option>';
+    listaAssuntosGlobal.forEach(assunto => {
+        const opt = document.createElement('option');
+        opt.value = assunto;
+        opt.innerText = assunto;
+        select.appendChild(opt);
+    });
 }
 
 function renderizarAssuntos(lista) {
@@ -660,6 +683,7 @@ async function salvarAssuntosNoBanco() {
             body: JSON.stringify({ lista: listaAssuntosGlobal })
         });
         renderizarAssuntos(listaAssuntosGlobal);
+        preencherFiltroAssuntosEspiao();
     } catch (erro) {
         console.error('Erro ao salvar assuntos:', erro);
     }
