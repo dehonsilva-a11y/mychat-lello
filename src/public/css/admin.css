@@ -151,7 +151,37 @@ body {
     background: #3b82f6;
 }
 
-/* DASHBOARD: KPIs & Grids */
+/* DASHBOARD: KPIs, Filtro de Calendário & Grids */
+.dash-filtros {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.input-data-moderno {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    outline: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.input-data-moderno:hover {
+    border-color: #94a3b8;
+}
+
+.input-data-moderno:focus {
+    border-color: #A00028;
+    box-shadow: 0 0 0 3px rgba(160, 0, 40, 0.1);
+}
+
 .kpi-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

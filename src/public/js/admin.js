@@ -94,11 +94,31 @@ function alternarAba(abaAtiva) {
 
 // INICIALIZAÇÃO DE DADOS
 function inicializarPainelAdmin() {
+    inicializarFiltroDatas();
     carregarMetricasDashboard();
     carregarColaboradores();
     carregarRespostasRapidas();
     carregarAssuntos();
     carregarMotivos();
+}
+
+// Preenche a Data Inicial (dia 1 do mês) e Data Final (hoje)
+function inicializarFiltroDatas() {
+    const inputInicio = document.getElementById('dash-data-inicio');
+    const inputFim = document.getElementById('dash-data-fim');
+    if (!inputInicio || !inputFim) return;
+
+    const hoje = new Date();
+    const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+
+    const formataData = (data) => {
+        const offset = data.getTimezoneOffset() * 60000;
+        const dataLocal = new Date(data.getTime() - offset);
+        return dataLocal.toISOString().split('T')[0];
+    };
+
+    inputInicio.value = formataData(primeiroDia);
+    inputFim.value = formataData(hoje);
 }
 
 // ============================================================================
@@ -107,8 +127,12 @@ function inicializarPainelAdmin() {
 
 async function carregarMetricasDashboard() {
     const prefixo = window.prefixoApp || '';
+    const dataInicio = document.getElementById('dash-data-inicio')?.value || '';
+    const dataFim = document.getElementById('dash-data-fim')?.value || '';
+
     try {
-        const res = await fetch(prefixo + '/api/admin/metrics');
+        const url = `${prefixo}/api/admin/metrics?inicio=${dataInicio}&fim=${dataFim}`;
+        const res = await fetch(url);
         const dados = await res.json();
 
         document.getElementById('kpi-total').innerText = dados.total || 0;
@@ -426,7 +450,6 @@ async function carregarListaEspiao() {
         const dados = await res.json();
 
         if (filtroStatus === 'abertos') {
-            // Combina os que estão na fila (pendentes) com os Em Atendimento
             listaEspiaoCache = [...(dados.fila || []), ...(dados.emAtendimento || [])];
         } else {
             listaEspiaoCache = dados.historico || [];
@@ -443,13 +466,11 @@ function filtrarListaEspiao() {
     const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
     
     const filtrados = listaEspiaoCache.filter(chat => {
-        // 1. Filtro de Busca Por Texto (Nome, E-mail ou Operador/Atendente)
         const matchTexto = 
             (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
             (chat.email && chat.email.toLowerCase().includes(termo)) ||
             (chat.atendente && chat.atendente.toLowerCase().includes(termo));
 
-        // 2. Filtro Por Assunto/Tag
         const assuntoChat = chat.origem || 'Geral';
         const matchAssunto = (filtroAssunto === 'todos') || (assuntoChat === filtroAssunto);
 
@@ -492,7 +513,6 @@ function selecionarChatEspiao(chat) {
     espiaoChatSelecionadoId = chat.id;
     espiaoUltimasMensagensCount = 0;
     
-    // Atualiza Layout Visual da Lista
     filtrarListaEspiao();
 
     document.getElementById('espiao-vazio').style.display = 'none';
@@ -505,7 +525,6 @@ function selecionarChatEspiao(chat) {
     badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
     badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
 
-    // Mostra input de intervenção apenas se não estiver encerrado
     const footer = document.getElementById('espiao-footer');
     if (chat.status === 'Encerrado') {
         footer.style.display = 'none';
@@ -530,7 +549,6 @@ async function carregarMensagensEspiaoAtivo() {
         const container = document.getElementById('espiao-mensagens');
         if (!container) return;
 
-        // Se houver novas mensagens, redesenha
         if (mensagens.length !== espiaoUltimasMensagensCount) {
             container.innerHTML = '';
             mensagens.forEach(msg => {
@@ -564,7 +582,6 @@ async function enviarMensagemIntervencao() {
             body: JSON.stringify({ 
                 chatId: espiaoChatSelecionadoId, 
                 mensagem: texto,
-                // Prefixo especial para o Gestor
                 atendente: `Gestor: ${nomeGestorLogado}`
             })
         });
@@ -607,7 +624,6 @@ function desenharBalaoEspiao(texto, remetente, autor, container) {
     `;
     container.appendChild(wrapper);
 }
-
 
 // ============================================================================
 // --- GESTÃO DE ASSUNTOS E MOTIVOS (CRUD SIMPLES) ---

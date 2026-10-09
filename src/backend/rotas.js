@@ -417,10 +417,27 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
 
 // --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS) ---
 
-// Obter Indicadores e Métricas do Dashboard (NPS, TMA, Volumes)
+// Obter Indicadores e Métricas do Dashboard com Filtro de Data
 router.get('/admin/metrics', async (req, res) => {
     try {
-        const snapshot = await db.collection('chats').get();
+        const { inicio, fim } = req.query;
+
+        // Constrói a referência básica para a coleção
+        let queryRef = db.collection('chats');
+
+        // Se houver datas fornecidas, converte para objetos Date (com margem para cobrir o fim do dia)
+        if (inicio && fim) {
+            const dataInicioStr = `${inicio}T00:00:00.000Z`;
+            const dataFimStr = `${fim}T23:59:59.999Z`;
+            
+            const inicioDate = new Date(dataInicioStr);
+            const fimDate = new Date(dataFimStr);
+
+            // Filtro aplicado no Firestore
+            queryRef = queryRef.where('criadoEm', '>=', inicioDate).where('criadoEm', '<=', fimDate);
+        }
+
+        const snapshot = await queryRef.get();
 
         let total = 0;
         let fila = 0;
@@ -472,11 +489,11 @@ router.get('/admin/metrics', async (req, res) => {
 
             // Cálculo do TMA (Tempo Médio de Atendimento)
             if (data.criadoEm && data.encerradoEm) {
-                const inicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
-                const fim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
+                const dtInicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
+                const dtFim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
 
-                if (fim > inicio) {
-                    somaDuracaoSegundos += (fim - inicio) / 1000;
+                if (dtFim > dtInicio) {
+                    somaDuracaoSegundos += (dtFim - dtInicio) / 1000;
                     qtdDuracao++;
                 }
             }

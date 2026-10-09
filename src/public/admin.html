@@ -47,7 +47,14 @@
                         <h3>Dashboard de Performance & Satisfação</h3>
                         <p>Visão consolidada do volume de chamados, satisfação (NPS) e Tempo Médio de Atendimento (TMA).</p>
                     </div>
-                    <button class="btn-novo btn-atualizar-dash" onclick="carregarMetricasDashboard()">🔄 Atualizar Dados</button>
+                    
+                    <!-- Filtros de Calendário -->
+                    <div class="dash-filtros">
+                        <input type="date" id="dash-data-inicio" class="input-data-moderno" title="Data Inicial">
+                        <span style="font-size: 12px; font-weight: bold; color: #64748b;">até</span>
+                        <input type="date" id="dash-data-fim" class="input-data-moderno" title="Data Final">
+                        <button class="btn-novo btn-atualizar-dash" onclick="carregarMetricasDashboard()">🔄 Atualizar Dados</button>
+                    </div>
                 </div>
 
                 <!-- Grid de KPIs Gerais -->
