@@ -50,8 +50,12 @@
                 <button class="btn-primary" onclick="iniciarAtendimentoComTriagem()">Iniciar Atendimento</button>
             </div>
 
-            <!-- Rodapé 2: Campo de Entrada de Texto (Inicia Oculto) -->
-            <div id="footer-input" class="chat-footer" style="display: none;">
+            <!-- Rodapé 2: Campo de Entrada de Texto com Botão de Anexo (Inicia Oculto) -->
+            <div id="footer-input" class="chat-footer" style="display: none; align-items: center; gap: 6px;">
+                <!-- Input de arquivo oculto e botão de clipe para o Cliente -->
+                <input type="file" id="input-anexo-cliente" style="display: none;" onchange="enviarAnexoCliente(event)">
+                <button class="btn-anexo-widget" onclick="acionarInputAnexoCliente()" title="Enviar imagem ou ficheiro" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 14px;">📎</button>
+
                 <input type="text" id="input-mensagem" placeholder="Escreva a sua mensagem..." onkeypress="tratarKeyPress(event)">
                 <button class="btn-send" onclick="enviarMensagem()">Enviar</button>
             </div>

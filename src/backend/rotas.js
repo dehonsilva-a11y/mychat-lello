@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
+const crypto = require('crypto');
 const { admin, db, bucket } = require('./firebase');
 
 // Configuração do Multer (Upload em memória até 10MB)
@@ -22,18 +23,21 @@ router.post('/upload', upload.single('arquivo'), async (req, res) => {
         const nomeUnico = `${Date.now()}_${nomeOriginal.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
         const file = bucket.file(`anexos/${nomeUnico}`);
 
+        // Gera token único de download do Firebase Storage
+        const token = crypto.randomUUID();
+
         await file.save(req.file.buffer, {
-            metadata: { contentType: mimeType },
+            metadata: { 
+                contentType: mimeType,
+                metadata: {
+                    firebaseStorageDownloadTokens: token
+                }
+            },
             resumable: false
         });
 
-        try {
-            await file.makePublic();
-        } catch (e) {
-            console.warn('[Storage] Aviso ao tornar arquivo público:', e.message);
-        }
-
-        const url = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+        // URL pública com token nativo do Firebase
+        const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
         const ehImagem = mimeType.startsWith('image/');
         const tipo = ehImagem ? 'imagem' : 'arquivo';
 
@@ -45,7 +49,7 @@ router.post('/upload', upload.single('arquivo'), async (req, res) => {
         });
     } catch (erro) {
         console.error('[ERRO upload arquivo]', erro);
-        res.status(500).json({ erro: 'Erro ao fazer upload do arquivo' });
+        res.status(500).json({ erro: 'Erro ao fazer upload do arquivo: ' + erro.message });
     }
 });
 

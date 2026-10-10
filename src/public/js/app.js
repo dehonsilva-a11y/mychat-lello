@@ -138,6 +138,67 @@ async function enviarMensagem() {
     }
 }
 
+// UPLOAD DE ANEXOS PELO CLIENTE
+function acionarInputAnexoCliente() {
+    const input = document.getElementById('input-anexo-cliente');
+    if (input) input.click();
+}
+
+async function enviarAnexoCliente(event) {
+    const file = event.target.files[0];
+    if (!file || !idClienteAtual) return;
+
+    event.target.value = '';
+
+    const prefixo = window.prefixoApp || '';
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    const chatBody = document.getElementById('chat-messages');
+
+    try {
+        if (chatBody) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-anexo-cliente';
+            loadingDiv.style.cssText = 'align-self: flex-end; color: #94a3b8; font-size: 11px; margin-bottom: 8px; font-weight: bold;';
+            loadingDiv.innerText = 'A enviar anexo... ⏳';
+            chatBody.appendChild(loadingDiv);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        const resUpload = await fetch(prefixo + '/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const dadosUpload = await resUpload.json();
+
+        if (dadosUpload.sucesso) {
+            await fetch(prefixo + '/api/mensagem', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatId: idClienteAtual,
+                    mensagem: '',
+                    tipo: dadosUpload.tipo,
+                    url: dadosUpload.url,
+                    nomeArquivo: dadosUpload.nomeArquivo
+                })
+            });
+            carregarRespostasServidor();
+        } else {
+            alert('Erro ao enviar anexo: ' + (dadosUpload.erro || 'Desconhecido'));
+            const el = document.getElementById('loading-anexo-cliente');
+            if (el) el.remove();
+        }
+    } catch (erro) {
+        console.error('Erro ao enviar anexo do cliente:', erro);
+        alert('Ocorreu um erro ao enviar o anexo. Tente novamente.');
+        const el = document.getElementById('loading-anexo-cliente');
+        if (el) el.remove();
+    }
+}
+
 async function carregarRespostasServidor() {
     if (!idClienteAtual) return;
 
@@ -169,7 +230,31 @@ async function carregarRespostasServidor() {
                 } else {
                     div.className = 'msg-sistema'; // Mensagens do protocolo, nps, transferências
                 }
-                div.innerText = msg.texto;
+
+                if (msg.de === 'sistema') {
+                    div.innerHTML = msg.texto;
+                } else {
+                    let conteudoHTML = '';
+                    if (msg.tipo === 'imagem' && msg.url) {
+                        conteudoHTML = `<img src="${msg.url}" alt="Imagem" class="msg-img-widget" onclick="window.open('${msg.url}', '_blank')">`;
+                        if (msg.texto) conteudoHTML += `<div style="margin-top: 4px;">${msg.texto}</div>`;
+                    } else if (msg.tipo === 'arquivo' && msg.url) {
+                        conteudoHTML = `
+                            <a href="${msg.url}" target="_blank" class="msg-arquivo-widget-card">
+                                <div style="font-size: 16px;">📄</div>
+                                <div>
+                                    <div class="msg-arquivo-widget-nome">${msg.nomeArquivo || 'Documento Anexo'}</div>
+                                    <div class="msg-arquivo-widget-baixar">Clique para baixar</div>
+                                </div>
+                            </a>
+                        `;
+                        if (msg.texto) conteudoHTML += `<div style="margin-top: 4px;">${msg.texto}</div>`;
+                    } else {
+                        conteudoHTML = msg.texto || '';
+                    }
+                    div.innerHTML = conteudoHTML;
+                }
+
                 chatBody.appendChild(div);
             });
 
@@ -297,6 +382,8 @@ function reiniciarAtendimento() {
         footerInput.style.flexDirection = 'row';
         footerInput.style.padding = '10px 12px';
         footerInput.innerHTML = `
+            <input type="file" id="input-anexo-cliente" style="display: none;" onchange="enviarAnexoCliente(event)">
+            <button class="btn-anexo-widget" onclick="acionarInputAnexoCliente()" title="Enviar imagem ou ficheiro" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 14px;">📎</button>
             <input type="text" id="input-mensagem" placeholder="Escreva a sua mensagem..." onkeypress="tratarKeyPress(event)">
             <button class="btn-send" onclick="enviarMensagem()">Enviar</button>
         `;
