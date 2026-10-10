@@ -612,7 +612,7 @@ async function carregarMensagensEspiaoAtivo() {
         if (mensagens.length !== espiaoUltimasMensagensCount) {
             container.innerHTML = '';
             mensagens.forEach(msg => {
-                desenharBalaoEspiao(msg.texto, msg.de, msg.autor, container);
+                desenharBalaoEspiao(msg, container);
             });
             espiaoUltimasMensagensCount = mensagens.length;
             container.scrollTop = container.scrollHeight;
@@ -651,13 +651,79 @@ async function enviarMensagemIntervencao() {
     }
 }
 
+function acionarInputAnexoEspiao() {
+    const input = document.getElementById('input-anexo-espiao');
+    if (input) input.click();
+}
+
+async function enviarAnexoEspiao(event) {
+    const file = event.target.files[0];
+    if (!file || !espiaoChatSelecionadoId) return;
+
+    event.target.value = '';
+
+    const prefixo = window.prefixoApp || '';
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    const nomeGestorLogado = document.getElementById('nome-admin-display')?.innerText || 'Gestor';
+    const container = document.getElementById('espiao-mensagens');
+
+    try {
+        if (container) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-anexo-espiao';
+            loadingDiv.style.cssText = 'align-self: flex-end; color: #94a3b8; font-size: 11px; margin-bottom: 8px; font-weight: bold;';
+            loadingDiv.innerText = 'A enviar anexo... ⏳';
+            container.appendChild(loadingDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        const resUpload = await fetch(prefixo + '/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        const dadosUpload = await resUpload.json();
+
+        if (dadosUpload.sucesso) {
+            await fetch(prefixo + '/api/atendimento/responder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatId: espiaoChatSelecionadoId,
+                    mensagem: '',
+                    atendente: `Gestor: ${nomeGestorLogado}`,
+                    tipo: dadosUpload.tipo,
+                    url: dadosUpload.url,
+                    nomeArquivo: dadosUpload.nomeArquivo
+                })
+            });
+            carregarMensagensEspiaoAtivo();
+        } else {
+            alert('Erro ao enviar o anexo: ' + (dadosUpload.erro || 'Desconhecido'));
+            const el = document.getElementById('loading-anexo-espiao');
+            if (el) el.remove();
+        }
+    } catch (erro) {
+        console.error('Erro no upload de anexo no espião:', erro);
+        alert('Ocorreu um erro ao enviar o anexo.');
+        const el = document.getElementById('loading-anexo-espiao');
+        if (el) el.remove();
+    }
+}
+
 function tratarKeyPressGestor(event) {
     if (event.key === 'Enter') {
         enviarMensagemIntervencao();
     }
 }
 
-function desenharBalaoEspiao(texto, remetente, autor, container) {
+function desenharBalaoEspiao(msg, container) {
+    const remetente = msg.de || 'cliente';
+    const autor = msg.autor || '';
+    const texto = msg.texto || '';
+
     const isCliente = remetente === 'cliente';
     const isSistema = remetente === 'sistema';
     const isGestor = autor && autor.startsWith('Gestor');
@@ -677,10 +743,30 @@ function desenharBalaoEspiao(texto, remetente, autor, container) {
     else wrapper.className = 'msg-wrapper atendente';
 
     const autorTexto = isCliente ? '👤 Cliente' : (isGestor ? `🛡️ ${autor}` : `👨‍💼 ${autor || 'Operador'}`);
+
+    let conteudoHTML = '';
+
+    if (msg.tipo === 'imagem' && msg.url) {
+        conteudoHTML = `<img src="${msg.url}" alt="Imagem anexa" class="msg-img-conteudo" onclick="window.open('${msg.url}', '_blank')">`;
+        if (texto) conteudoHTML += `<div style="margin-top: 6px;">${texto}</div>`;
+    } else if (msg.tipo === 'arquivo' && msg.url) {
+        conteudoHTML = `
+            <a href="${msg.url}" target="_blank" class="msg-arquivo-card">
+                <div style="font-size: 18px;">📄</div>
+                <div>
+                    <div class="msg-arquivo-nome">${msg.nomeArquivo || 'Documento Anexo'}</div>
+                    <div class="msg-arquivo-baixar">Clique para baixar</div>
+                </div>
+            </a>
+        `;
+        if (texto) conteudoHTML += `<div style="margin-top: 6px;">${texto}</div>`;
+    } else {
+        conteudoHTML = texto;
+    }
     
     wrapper.innerHTML = `
         <div class="msg-meta">${autorTexto}</div>
-        <div class="msg-bubble">${texto}</div>
+        <div class="msg-bubble">${conteudoHTML}</div>
     `;
     container.appendChild(wrapper);
 }

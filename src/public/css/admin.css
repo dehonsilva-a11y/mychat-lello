@@ -736,9 +736,30 @@ body {
     background: #f8fafc;
     display: none;
     gap: 8px;
+    align-items: center;
 }
 
-.espiao-chat-footer input {
+.btn-anexo-espiao {
+    background: #ffffff;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-anexo-espiao:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.espiao-chat-footer input[type="text"] {
     flex: 1;
     padding: 10px;
     border-radius: 6px;
@@ -747,7 +768,7 @@ body {
     font-size: 13px;
 }
 
-.espiao-chat-footer input:focus {
+.espiao-chat-footer input[type="text"]:focus {
     border-color: #A00028;
 }
 
@@ -760,6 +781,7 @@ body {
     font-weight: bold;
     cursor: pointer;
     transition: background 0.2s;
+    height: 38px;
 }
 
 .espiao-chat-footer button:hover {
@@ -817,4 +839,62 @@ body {
     border-radius: 12px;
     font-size: 11px;
     margin: 4px 0;
+}
+
+/* Mídias e Ficheiros no Modo Espião */
+.msg-img-conteudo {
+    max-width: 240px;
+    max-height: 240px;
+    border-radius: 8px;
+    margin-top: 4px;
+    cursor: pointer;
+    display: block;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+}
+
+.msg-img-conteudo:hover {
+    transform: scale(1.02);
+}
+
+.msg-arquivo-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-top: 4px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+}
+
+.msg-wrapper.gestor .msg-arquivo-card {
+    background: rgba(133, 77, 14, 0.1);
+    border-color: rgba(133, 77, 14, 0.2);
+}
+
+.msg-wrapper.atendente .msg-arquivo-card {
+    background: rgba(3, 105, 161, 0.1);
+    border-color: rgba(3, 105, 161, 0.2);
+}
+
+.msg-arquivo-card:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.msg-arquivo-nome {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+
+.msg-arquivo-baixar {
+    font-size: 10px;
+    opacity: 0.85;
 }

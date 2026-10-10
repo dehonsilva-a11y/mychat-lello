@@ -44,3 +44,82 @@
     height: 100%;
     border: none;
 }
+
+/* --- ESTILOS DE ANEXOS E IMAGENS DENTRO DO WIDGET --- */
+
+.btn-anexo-widget {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-anexo-widget:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+    border-color: #94a3b8;
+}
+
+.msg-img-widget {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    margin-top: 4px;
+    cursor: pointer;
+    display: block;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+}
+
+.msg-img-widget:hover {
+    transform: scale(1.02);
+}
+
+.msg-arquivo-widget-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-top: 4px;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+}
+
+.msg-wrapper.cliente .msg-arquivo-widget-card {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
+.msg-arquivo-widget-card:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.msg-wrapper.cliente .msg-arquivo-widget-card:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.msg-arquivo-widget-nome {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.msg-arquivo-widget-baixar {
+    font-size: 10px;
+    opacity: 0.85;
+}

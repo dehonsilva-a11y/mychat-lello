@@ -74,6 +74,8 @@
         const iframe = document.createElement('iframe');
         iframe.id = 'mychat-widget-iframe';
         iframe.src = `${baseUrl}/index.html?${queryParams.toString()}`;
+        // Permite acionar câmera e microfone para envio de fotos/mídia em dispositivos móveis
+        iframe.allow = 'camera; microphone';
         
         container.appendChild(iframe);
         document.body.appendChild(container);

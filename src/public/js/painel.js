@@ -513,7 +513,7 @@ async function carregarMensagensChatAtivo() {
 
         container.innerHTML = '';
         mensagens.forEach(msg => {
-            desenharBalao(msg.texto, msg.de, msg.autor, container);
+            desenharBalao(msg, container); // Enviando o objeto inteiro
         });
 
         container.scrollTop = container.scrollHeight;
@@ -522,6 +522,7 @@ async function carregarMensagensChatAtivo() {
     }
 }
 
+// ENVIO DE TEXTO NORMAL
 async function enviarRespostaOperador() {
     const input = document.getElementById('input-resposta-operador');
     if (!input) return;
@@ -548,6 +549,73 @@ async function enviarRespostaOperador() {
         console.error('Erro ao responder:', erro);
     }
 }
+
+// ==========================================
+// LÓGICA DE UPLOAD DE ANEXOS E IMAGENS
+// ==========================================
+function acionarInputAnexo() {
+    document.getElementById('input-anexo-operador').click();
+}
+
+async function enviarAnexoOperador(event) {
+    const file = event.target.files[0];
+    if (!file || !chatSelecionadoId) return;
+
+    // Reseta o input para permitir enviar o mesmo arquivo depois, se necessário
+    event.target.value = '';
+
+    const prefixo = window.prefixoApp || '';
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    const container = document.getElementById('painel-messages');
+
+    try {
+        // Indicador visual temporário de carregamento
+        if (container) {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'loading-anexo';
+            loadingDiv.style.cssText = 'align-self: flex-end; color: #94a3b8; font-size: 11px; margin-bottom: 8px; font-weight: bold;';
+            loadingDiv.innerText = 'A enviar anexo... ⏳';
+            container.appendChild(loadingDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        const resUpload = await fetch(prefixo + '/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const dadosUpload = await resUpload.json();
+
+        if (dadosUpload.sucesso) {
+            // Envia a mensagem com a URL do anexo e o Tipo
+            await fetch(prefixo + '/api/atendimento/responder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    chatId: chatSelecionadoId, 
+                    mensagem: '', 
+                    atendente: obterNomeOperador(),
+                    tipo: dadosUpload.tipo,
+                    url: dadosUpload.url,
+                    nomeArquivo: dadosUpload.nomeArquivo
+                })
+            });
+            carregarMensagensChatAtivo();
+        } else {
+            alert('Erro ao enviar o anexo: ' + (dadosUpload.erro || 'Desconhecido'));
+            const el = document.getElementById('loading-anexo');
+            if (el) el.remove();
+        }
+    } catch (erro) {
+        console.error('Erro no upload de anexo:', erro);
+        alert('Ocorreu um erro ao enviar o anexo. Tente novamente.');
+        const el = document.getElementById('loading-anexo');
+        if (el) el.remove();
+    }
+}
+
 
 // TABULAÇÃO E ENCERRAMENTO DE ATENDIMENTO
 async function carregarMotivosTabulacao() {
@@ -725,9 +793,11 @@ function tratarKeyPressOperador(event) {
     }
 }
 
-function desenharBalao(texto, remetente, autor, container) {
-    const isCliente = remetente === 'cliente';
-    const isSistema = remetente === 'sistema';
+// DESENHO DO BALÃO DINÂMICO (TEXTO, IMAGEM OU ARQUIVO)
+function desenharBalao(msg, container) {
+    const isCliente = msg.de === 'cliente';
+    const isSistema = msg.de === 'sistema';
+    const texto = msg.texto || '';
 
     if (isSistema) {
         const div = document.createElement('div');
@@ -740,13 +810,34 @@ function desenharBalao(texto, remetente, autor, container) {
     const wrapper = document.createElement('div');
     wrapper.className = `msg-wrapper ${isCliente ? 'cliente' : 'atendente'}`;
 
-    const autorTexto = isCliente ? '👤 Cliente' : `👨‍💼 ${autor || 'Atendente Lello'}`;
+    const autorTexto = isCliente ? '👤 Cliente' : `👨‍💼 ${msg.autor || 'Atendente Lello'}`;
     
+    let conteudoHTML = '';
+
+    // Verifica se é imagem, arquivo ou texto
+    if (msg.tipo === 'imagem' && msg.url) {
+        conteudoHTML = `<img src="${msg.url}" alt="Imagem anexa" class="msg-img-conteudo" onclick="window.open('${msg.url}', '_blank')">`;
+        if (texto) conteudoHTML += `<div style="margin-top: 8px;">${texto}</div>`;
+    } else if (msg.tipo === 'arquivo' && msg.url) {
+        conteudoHTML = `
+            <a href="${msg.url}" target="_blank" class="msg-arquivo-card">
+                <div class="msg-arquivo-icone">📄</div>
+                <div class="msg-arquivo-info">
+                    <span class="msg-arquivo-nome">${msg.nomeArquivo || 'Documento Anexo'}</span>
+                    <span class="msg-arquivo-baixar">Clique para baixar</span>
+                </div>
+            </a>
+        `;
+        if (texto) conteudoHTML += `<div style="margin-top: 8px;">${texto}</div>`;
+    } else {
+        conteudoHTML = texto;
+    }
+
     wrapper.innerHTML = `
         <div class="msg-meta">
             <span class="msg-autor">${autorTexto}</span>
         </div>
-        <div class="msg-bubble">${texto}</div>
+        <div class="msg-bubble">${conteudoHTML}</div>
     `;
     container.appendChild(wrapper);
 }

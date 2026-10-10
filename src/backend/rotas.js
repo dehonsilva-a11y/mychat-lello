@@ -1,6 +1,53 @@
 const express = require('express');
 const router = express.Router();
-const { admin, db } = require('./firebase');
+const multer = require('multer');
+const { admin, db, bucket } = require('./firebase');
+
+// Configuração do Multer (Upload em memória até 10MB)
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+// --- ROTA DE UPLOAD DE ARQUIVOS / IMAGENS ---
+
+router.post('/upload', upload.single('arquivo'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ erro: 'Nenhum arquivo foi enviado.' });
+        }
+
+        const nomeOriginal = req.file.originalname;
+        const mimeType = req.file.mimetype;
+        const nomeUnico = `${Date.now()}_${nomeOriginal.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+        const file = bucket.file(`anexos/${nomeUnico}`);
+
+        await file.save(req.file.buffer, {
+            metadata: { contentType: mimeType },
+            resumable: false
+        });
+
+        try {
+            await file.makePublic();
+        } catch (e) {
+            console.warn('[Storage] Aviso ao tornar arquivo público:', e.message);
+        }
+
+        const url = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+        const ehImagem = mimeType.startsWith('image/');
+        const tipo = ehImagem ? 'imagem' : 'arquivo';
+
+        res.json({
+            sucesso: true,
+            url,
+            nomeArquivo: nomeOriginal,
+            tipo
+        });
+    } catch (erro) {
+        console.error('[ERRO upload arquivo]', erro);
+        res.status(500).json({ erro: 'Erro ao fazer upload do arquivo' });
+    }
+});
 
 // --- ROTAS DE CONFIGURAÇÃO & PERFIL ---
 
@@ -118,9 +165,10 @@ router.post('/iniciar', async (req, res) => {
     }
 });
 
+// Envio de mensagem pelo Cliente (Com Suporte a Anexos/Imagens)
 router.post('/mensagem', async (req, res) => {
     try {
-        const { mensagem, chatId } = req.body;
+        const { mensagem, chatId, tipo, url, nomeArquivo } = req.body;
         const idLimpo = String(chatId).trim();
         const chatRef = db.collection('chats').doc(idLimpo);
         const doc = await chatRef.get();
@@ -136,9 +184,18 @@ router.post('/mensagem', async (req, res) => {
             });
         }
 
-        if (mensagem) {
+        if (mensagem || url) {
+            const objetoMensagem = {
+                de: 'cliente',
+                texto: mensagem || '',
+                tipo: tipo || 'texto',
+                url: url || null,
+                nomeArquivo: nomeArquivo || null,
+                criadoEm: new Date().toISOString()
+            };
+
             await chatRef.update({
-                mensagens: admin.firestore.FieldValue.arrayUnion({ de: 'cliente', texto: mensagem })
+                mensagens: admin.firestore.FieldValue.arrayUnion(objetoMensagem)
             });
         }
 
@@ -230,7 +287,7 @@ router.get('/atendimento/lista', async (req, res) => {
     }
 });
 
-// ROTA HISTÓRICO: Filtra por datas no banco e valida status em memória (sem erro de índice)
+// ROTA HISTÓRICO: Filtra por datas no banco e valida status em memória
 router.get('/atendimento/historico', async (req, res) => {
     try {
         const { inicio, fim } = req.query;
@@ -344,9 +401,10 @@ router.post('/atendimento/transferir', async (req, res) => {
     }
 });
 
+// Resposta do Operador / Gestor (Com Suporte a Anexos/Imagens)
 router.post('/atendimento/responder', async (req, res) => {
     try {
-        const { chatId, mensagem, atendente } = req.body;
+        const { chatId, mensagem, atendente, tipo, url, nomeArquivo } = req.body;
         const idLimpo = String(chatId).trim();
         const chatRef = db.collection('chats').doc(idLimpo);
         const doc = await chatRef.get();
@@ -362,14 +420,20 @@ router.post('/atendimento/responder', async (req, res) => {
             });
         }
 
-        if (mensagem) {
+        if (mensagem || url) {
             const nomeAtendente = atendente || 'Atendente Lello';
+            const objetoMensagem = {
+                de: 'atendente',
+                texto: mensagem || '',
+                autor: nomeAtendente,
+                tipo: tipo || 'texto',
+                url: url || null,
+                nomeArquivo: nomeArquivo || null,
+                criadoEm: new Date().toISOString()
+            };
+
             await chatRef.update({
-                mensagens: admin.firestore.FieldValue.arrayUnion({ 
-                    de: 'atendente', 
-                    texto: mensagem,
-                    autor: nomeAtendente 
-                })
+                mensagens: admin.firestore.FieldValue.arrayUnion(objetoMensagem)
             });
             return res.json({ sucesso: true });
         }
@@ -381,7 +445,7 @@ router.post('/atendimento/responder', async (req, res) => {
     }
 });
 
-// Encerrar atendimento com Tabulação (Resolvido / Não Resolvido)
+// Encerrar atendimento com Tabulação
 router.post('/atendimento/encerrar', async (req, res) => {
     try {
         const { chatId, resolvido, motivoNaoResolvido } = req.body;
@@ -508,7 +572,6 @@ router.get('/admin/metrics', async (req, res) => {
             else if (data.status === 'Encerrado') {
                 encerrados++;
 
-                // Métrica de Resolutividade
                 if (data.tabulacao) {
                     if (data.tabulacao.resolvido === true) {
                         resolvidos++;
@@ -520,11 +583,9 @@ router.get('/admin/metrics', async (req, res) => {
                 }
             }
 
-            // Agrupamento por Assunto
             const assunto = data.origem || 'Geral';
             assuntoMap[assunto] = (assuntoMap[assunto] || 0) + 1;
 
-            // Agrupamento por Operador
             if (data.atendente) {
                 if (!opMap[data.atendente]) {
                     opMap[data.atendente] = { atendimentos: 0, encerrados: 0, somaNps: 0, qtdNps: 0 };
@@ -535,7 +596,6 @@ router.get('/admin/metrics', async (req, res) => {
                 }
             }
 
-            // Cálculo do NPS
             if (data.nps && typeof data.nps.nota === 'number') {
                 somaNps += data.nps.nota;
                 qtdNps++;
@@ -546,7 +606,6 @@ router.get('/admin/metrics', async (req, res) => {
                 }
             }
 
-            // Cálculo do TMA (Tempo Médio de Atendimento)
             if (data.criadoEm && data.encerradoEm) {
                 const dtInicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
                 const dtFim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();

@@ -224,8 +224,10 @@
                         <div id="espiao-mensagens" class="espiao-chat-mensagens">
                         </div>
 
-                        <!-- Rodapé de Intervenção do Gestor -->
+                        <!-- Rodapé de Intervenção do Gestor (Com Suporte a Anexos) -->
                         <div id="espiao-footer" class="espiao-chat-footer">
+                            <input type="file" id="input-anexo-espiao" style="display: none;" onchange="enviarAnexoEspiao(event)">
+                            <button class="btn-anexo-espiao" onclick="acionarInputAnexoEspiao()" title="Enviar imagem ou ficheiro">📎</button>
                             <input type="text" id="input-intervencao-gestor" placeholder="Mensagem de intervenção como Gestor..." onkeypress="tratarKeyPressGestor(event)">
                             <button onclick="enviarMensagemIntervencao()">Enviar Mensagem</button>
                         </div>
