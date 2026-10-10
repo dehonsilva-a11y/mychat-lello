@@ -135,20 +135,25 @@ async function carregarMetricasDashboard() {
         const res = await fetch(url);
         const dados = await res.json();
 
+        // Helper seguro: Atualiza a propriedade innerText apenas se o elemento existir no DOM
+        const atualizaKpi = (id, valor) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = valor;
+        };
+
         // KPIs Gerais
-        document.getElementById('kpi-total').innerText = dados.total || 0;
-        document.getElementById('kpi-fila').innerText = dados.fila || 0;
-        document.getElementById('kpi-em-atendimento').innerText = dados.emAtendimento || 0;
-        document.getElementById('kpi-encerrados').innerText = dados.encerrados || 0;
+        atualizaKpi('kpi-total', dados.total || 0);
+        atualizaKpi('kpi-fila', dados.fila || 0);
+        atualizaKpi('kpi-em-atendimento', dados.emAtendimento || 0);
+        atualizaKpi('kpi-encerrados', dados.encerrados || 0);
         
         // Novos KPIs de Resolutividade
-        document.getElementById('kpi-resolvidos').innerText = dados.resolvidos || 0;
-        document.getElementById('kpi-nao-resolvidos').innerText = dados.naoResolvidos || 0;
+        atualizaKpi('kpi-resolvidos', dados.resolvidos || 0);
+        atualizaKpi('kpi-nao-resolvidos', dados.naoResolvidos || 0);
 
-        document.getElementById('kpi-nps-media').innerText = dados.npsMedia || '-';
-        document.getElementById('kpi-nps-qtd').innerText = `${dados.qtdNps || 0} avaliações`;
-        
-        document.getElementById('kpi-tma').innerText = `${dados.tmaMinutos || 0} min`;
+        atualizaKpi('kpi-nps-media', dados.npsMedia || '-');
+        atualizaKpi('kpi-nps-qtd', `${dados.qtdNps || 0} avaliações`);
+        atualizaKpi('kpi-tma', `${dados.tmaMinutos || 0} min`);
 
         // Tabela de Operadores
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
@@ -497,7 +502,7 @@ function filtrarListaEspiao() {
     const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
     
     const filtrados = listaEspiaoCache.filter(chat => {
-        // Agora busca por Nome, Email, Operador OU Protocolo
+        // Busca por Nome, Email, Operador OU Protocolo
         const matchTexto = 
             (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
             (chat.email && chat.email.toLowerCase().includes(termo)) ||
