@@ -3,6 +3,9 @@ let intervalPolling = null;
 let npsExibido = false;
 let notaSelecionada = 5;
 
+// Variável para evitar o loop de repetição no ecrã do cliente
+let ultimasMensagensClienteCount = 0; 
+
 // Captura Parâmetros de Contexto passados pela URL (via widget.js / teste.html / HubSpot)
 const urlParams = new URLSearchParams(window.location.search);
 const ctxNome = urlParams.get('nome') || '';
@@ -90,6 +93,8 @@ async function iniciarAtendimentoComTriagem() {
     document.getElementById('footer-iniciar').style.display = 'none';
     document.getElementById('footer-input').style.display = 'flex';
 
+    ultimasMensagensClienteCount = 0; // Zera o contador de mensagens no início do chat
+
     adicionarMensagemSistema('Solicitando atendimento...');
 
     try {
@@ -145,13 +150,16 @@ async function carregarRespostasServidor() {
         const chatBody = document.getElementById('chat-messages');
         if (!chatBody) return;
 
-        if (dados.mensagens && dados.mensagens.length > 0) {
-            // Preserva avisos de sistema iniciais
-            const msgsSistema = chatBody.querySelectorAll('.msg-sistema');
+        // Se houver mensagens e a quantidade for DIFERENTE da que já temos renderizada, nós redesenhamos o ecrã
+        if (dados.mensagens && dados.mensagens.length !== ultimasMensagensClienteCount) {
+            
+            // Preserva avisos de sistema iniciais (Fila, Posição)
+            const msgsSistemaIniciais = Array.from(chatBody.querySelectorAll('.msg-sistema')).filter(m => m.innerHTML.includes('<strong>Status:</strong>') || m.innerHTML.includes('Solicitando atendimento'));
+            
             chatBody.innerHTML = ''; 
-            msgsSistema.forEach(m => chatBody.appendChild(m));
+            msgsSistemaIniciais.forEach(m => chatBody.appendChild(m));
 
-            // Renderiza as mensagens recebidas
+            // Renderiza as mensagens recebidas da BD
             dados.mensagens.forEach(msg => {
                 const div = document.createElement('div');
                 if (msg.de === 'cliente') {
@@ -159,12 +167,14 @@ async function carregarRespostasServidor() {
                 } else if (msg.de === 'atendente') {
                     div.className = 'msg-atendente';
                 } else {
-                    div.className = 'msg-sistema';
+                    div.className = 'msg-sistema'; // Mensagens do protocolo, nps, transferências
                 }
                 div.innerText = msg.texto;
                 chatBody.appendChild(div);
             });
 
+            // Atualiza o contador de controlo e faz scroll para baixo
+            ultimasMensagensClienteCount = dados.mensagens.length;
             chatBody.scrollTop = chatBody.scrollHeight;
         }
 
@@ -249,6 +259,7 @@ async function enviarAvaliacaoNPS() {
 function reiniciarAtendimento() {
     idClienteAtual = null;
     npsExibido = false;
+    ultimasMensagensClienteCount = 0; // Reset na variável do ciclo
 
     // Limpa mensagens do chat e restaura o formulário de triagem
     const chatBody = document.getElementById('chat-messages');
