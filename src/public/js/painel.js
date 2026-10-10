@@ -53,6 +53,21 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(carregarMensagensChatAtivo, 1500);
 });
 
+// ALTERNAR ABAS NA BARRA LATERAL
+function alternarAbaSidebar(aba) {
+    document.querySelectorAll('.sidebar-aba-conteudo').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('.sidebar-tab-btn').forEach(el => el.classList.remove('active'));
+
+    const abaEl = document.getElementById(`aba-sidebar-${aba}`);
+    const btnEl = document.getElementById(`tab-btn-${aba}`);
+
+    if (abaEl) abaEl.style.display = 'flex';
+    if (btnEl) btnEl.classList.add('active');
+
+    if (aba === 'tickets') carregarMeusTickets();
+    if (aba === 'historico') carregarHistoricoAtendimentos();
+}
+
 async function fazerLogout() {
     try {
         await auth.signOut();
@@ -468,10 +483,9 @@ function selecionarChat(chat) {
             badgeSubstatusHeader.className = `badge-substatus ${colorClass}`;
             badgeSubstatusHeader.style.display = 'inline-block';
         }
-        if (btnConverter) btnConverter.style.display = 'none'; // Já é ticket
-        if (btnTransferir) btnTransferir.style.display = 'none'; // Transferência de tickets não permitida por padrão aqui
+        if (btnConverter) btnConverter.style.display = 'none'; 
+        if (btnTransferir) btnTransferir.style.display = 'none'; 
         
-        // Em vez de "Encerrar Atendimento" padrão, muda para "Concluir Ticket"
         if (btnEncerrar) {
             btnEncerrar.innerText = '✅ Concluir Ticket';
             btnEncerrar.onclick = abrirModalTabulacaoTicket;
@@ -611,7 +625,6 @@ async function enviarRespostaOperador() {
             })
         });
         
-        // Se for Ticket, mudar automaticamente de "Aberto" para "Em Andamento" ao responder
         if (chatSelecionadoStatus === 'Ticket') {
             await fetch(prefixo + '/api/tickets/atualizar-status', {
                 method: 'POST',
@@ -677,7 +690,6 @@ async function enviarAnexoOperador(event) {
                 })
             });
 
-            // Se for Ticket, mudar status para "Em Andamento" ao enviar arquivo
             if (chatSelecionadoStatus === 'Ticket') {
                 await fetch(prefixo + '/api/tickets/atualizar-status', {
                     method: 'POST',
@@ -983,7 +995,7 @@ function desenharBalao(msg, container) {
     if (isSistema) {
         const div = document.createElement('div');
         div.style.cssText = 'align-self: center; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-align: center; margin: 4px 0;';
-        div.innerHTML = texto; // Usar innerHTML para permitir tags <b> e <br> do sistema
+        div.innerHTML = texto;
         container.appendChild(div);
         return;
     }
