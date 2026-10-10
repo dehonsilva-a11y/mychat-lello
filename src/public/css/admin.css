@@ -230,9 +230,10 @@ body {
 .text-cinza { color: #64748b; }
 .text-roxo { color: #7c3aed; }
 
+/* Ajuste da Grid dos Detalhes do Dashboard */
 .dashboard-detalhes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
     gap: 20px;
 }
 
@@ -272,23 +273,35 @@ body {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+/* Card Admin com Proteção contra Estouro */
+.card-admin {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    overflow-x: auto; /* Permite rolagem suave se a tela for muito pequena */
+}
+
+/* Tabelas Compactas do Dashboard */
 .tabela-admin {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    font-size: 13px;
+    font-size: 12px; /* Reduzido levemente para caber todas as colunas */
 }
 
 .tabela-admin th {
     background: #f1f5f9;
     color: #475569;
-    padding: 12px 16px;
+    padding: 8px 10px; /* Compactado o padding interno */
     font-weight: 600;
     border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
 }
 
 .tabela-admin td {
-    padding: 12px 16px;
+    padding: 8px 10px; /* Compactado o padding interno */
     border-bottom: 1px solid #f1f5f9;
     color: #334155;
     vertical-align: middle;
@@ -326,15 +339,6 @@ body {
     font-size: 11px;
     font-weight: bold;
     cursor: pointer;
-}
-
-/* Cards & Listas CRUD */
-.card-admin {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .form-inline {

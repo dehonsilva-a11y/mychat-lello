@@ -200,11 +200,20 @@ router.post('/atendimento/nps', async (req, res) => {
     }
 });
 
-// --- ROTAS DO PAINEL DO COLABORADOR ---
+// --- ROTAS DO PAINEL DO COLABORADOR / MODO ESPIÃO ---
 
 router.get('/atendimento/lista', async (req, res) => {
     try {
-        const snapshot = await db.collection('chats').get();
+        const { inicio, fim } = req.query;
+        let queryRef = db.collection('chats');
+
+        if (inicio && fim) {
+            const inicioDate = new Date(`${inicio}T00:00:00.000Z`);
+            const fimDate = new Date(`${fim}T23:59:59.999Z`);
+            queryRef = queryRef.where('criadoEm', '>=', inicioDate).where('criadoEm', '<=', fimDate);
+        }
+
+        const snapshot = await queryRef.get();
         const fila = [];
         const emAtendimento = [];
 
@@ -223,7 +232,16 @@ router.get('/atendimento/lista', async (req, res) => {
 
 router.get('/atendimento/historico', async (req, res) => {
     try {
-        const snapshot = await db.collection('chats').where('status', '==', 'Encerrado').get();
+        const { inicio, fim } = req.query;
+        let queryRef = db.collection('chats').where('status', '==', 'Encerrado');
+
+        if (inicio && fim) {
+            const inicioDate = new Date(`${inicio}T00:00:00.000Z`);
+            const fimDate = new Date(`${fim}T23:59:59.999Z`);
+            queryRef = queryRef.where('criadoEm', '>=', inicioDate).where('criadoEm', '<=', fimDate);
+        }
+
+        const snapshot = await queryRef.get();
         const historico = [];
 
         snapshot.forEach(doc => {

@@ -77,6 +77,24 @@
                         <span class="kpi-sub">Geral registrado</span>
                     </div>
 
+                    <div class="kpi-card">
+                        <span class="kpi-titulo">Fila / Em Aberto</span>
+                        <strong id="kpi-fila" class="kpi-valor text-vermelho">0</strong>
+                        <span class="kpi-sub">Aguardando atendente</span>
+                    </div>
+
+                    <div class="kpi-card">
+                        <span class="kpi-titulo">Em Atendimento</span>
+                        <strong id="kpi-em-atendimento" class="kpi-valor text-verde">0</strong>
+                        <span class="kpi-sub">Em andamento</span>
+                    </div>
+
+                    <div class="kpi-card">
+                        <span class="kpi-titulo">Encerrados</span>
+                        <strong id="kpi-encerrados" class="kpi-valor text-cinza">0</strong>
+                        <span class="kpi-sub">Finalizados</span>
+                    </div>
+
                     <!-- Novos KPIs de Resolutividade -->
                     <div class="kpi-card">
                         <span class="kpi-titulo">Resolvidos</span>
@@ -151,6 +169,11 @@
                         <p>Visualize e interaja em chats em tempo real ou consulte o histórico.</p>
                     </div>
                     <div class="espiao-filtros">
+                        <!-- Filtro de Data do Modo Espião -->
+                        <input type="date" id="espiao-data-inicio" class="input-data-moderno" title="Data Inicial Espião" onchange="carregarListaEspiao()">
+                        <span style="font-size: 12px; font-weight: bold; color: #64748b;">até</span>
+                        <input type="date" id="espiao-data-fim" class="input-data-moderno" title="Data Final Espião" onchange="carregarListaEspiao()">
+
                         <!-- Filtro de Status -->
                         <select id="filtro-status-espiao" class="select-moderno" onchange="carregarListaEspiao()">
                             <option value="abertos">Chats Em Aberto / Fila</option>

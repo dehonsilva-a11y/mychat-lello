@@ -102,11 +102,12 @@ function inicializarPainelAdmin() {
     carregarMotivos();
 }
 
-// Preenche a Data Inicial (dia 1 do mês) e Data Final (hoje)
+// Preenche a Data Inicial (dia 1 do mês) e Data Final (hoje) para o Dashboard e para o Espião
 function inicializarFiltroDatas() {
     const inputInicio = document.getElementById('dash-data-inicio');
     const inputFim = document.getElementById('dash-data-fim');
-    if (!inputInicio || !inputFim) return;
+    const espiaoInicio = document.getElementById('espiao-data-inicio');
+    const espiaoFim = document.getElementById('espiao-data-fim');
 
     const hoje = new Date();
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -117,8 +118,13 @@ function inicializarFiltroDatas() {
         return dataLocal.toISOString().split('T')[0];
     };
 
-    inputInicio.value = formataData(primeiroDia);
-    inputFim.value = formataData(hoje);
+    const dataInicioStr = formataData(primeiroDia);
+    const dataFimStr = formataData(hoje);
+
+    if (inputInicio) inputInicio.value = dataInicioStr;
+    if (inputFim) inputFim.value = dataFimStr;
+    if (espiaoInicio) espiaoInicio.value = dataInicioStr;
+    if (espiaoFim) espiaoFim.value = dataFimStr;
 }
 
 // ============================================================================
@@ -472,14 +478,18 @@ async function excluirRespostaRapida(id) {
 
 async function carregarListaEspiao() {
     const prefixo = window.prefixoApp || '';
-    const filtroStatus = document.getElementById('filtro-status-espiao').value; 
-    
+    const filtroStatus = document.getElementById('filtro-status-espiao')?.value || 'abertos'; 
+    const dataInicio = document.getElementById('espiao-data-inicio')?.value || '';
+    const dataFim = document.getElementById('espiao-data-fim')?.value || '';
+
     try {
         let url = prefixo;
+        const params = `inicio=${dataInicio}&fim=${dataFim}&_t=${Date.now()}`;
+
         if (filtroStatus === 'abertos') {
-            url += `/api/atendimento/lista?_t=${Date.now()}`;
+            url += `/api/atendimento/lista?${params}`;
         } else {
-            url += `/api/atendimento/historico?_t=${Date.now()}`;
+            url += `/api/atendimento/historico?${params}`;
         }
 
         const res = await fetch(url, { cache: 'no-store' });
