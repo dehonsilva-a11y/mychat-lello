@@ -161,7 +161,7 @@ async function carregarMetricasDashboard() {
         atualizaKpi('kpi-nps-qtd', `${dados.qtdNps || 0} avaliações`);
         atualizaKpi('kpi-tma', `${dados.tmaMinutos || 0} min`);
 
-        // Tabela de Operadores
+        // Tabela de Operadores (Com Tooltip no e-mail)
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
         if (tbodyOp) {
             tbodyOp.innerHTML = '';
@@ -171,10 +171,10 @@ async function carregarMetricasDashboard() {
                 dados.porOperador.forEach(op => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
-                        <td><strong>${op.nome}</strong></td>
+                        <td title="${op.nome}"><strong>${op.nome}</strong></td>
                         <td>${op.atendimentos}</td>
                         <td>${op.encerrados}</td>
-                        <td><span style="background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">⭐ ${op.npsMedia}</span></td>
+                        <td><span style="background: #fef08a; color: #854d0e; padding: 2px 6px; border-radius: 12px; font-weight: bold; font-size: 10px;">⭐ ${op.npsMedia}</span></td>
                     `;
                     tbodyOp.appendChild(tr);
                 });
