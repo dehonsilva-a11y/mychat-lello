@@ -20,14 +20,14 @@
                 <img id="logo-lello" src="assets/logo.png" alt="Lello" style="height: 28px;">
                 <h2>Mychat | Cockpit de Atendimento</h2>
             </div>
-            <div class="user-info" style="display: flex; align-items: center; gap: 14px;">
+            <div class="user-info">
                 
                 <!-- Botão de Acesso à Gestão (Visível Apenas para Admin) -->
                 <a href="admin.html" id="btn-acesso-gestao" style="display: none; background: rgba(255, 255, 255, 0.15); color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600;">Painel de Gestão</a>
 
                 <!-- Status de Presença do Operador -->
-                <div class="status-container" style="display: flex; align-items: center; gap: 6px;">
-                    <select id="select-status-operador" onchange="alterarStatusOperador(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 11px; font-weight: 600; cursor: pointer; outline: none; background: #ffffff; color: #1e293b;">
+                <div class="status-container">
+                    <select id="select-status-operador" onchange="alterarStatusOperador(this.value)">
                         <option value="disponivel">🟢 Disponível</option>
                         <option value="pausa">🟡 Em Pausa</option>
                         <option value="ocupado">🔴 Ocupado</option>
@@ -66,7 +66,7 @@
                 <div class="secao-lista" style="border-bottom: none;">
                     <h3>Histórico</h3>
                     <div style="padding: 6px 12px;">
-                        <input type="text" id="filtro-historico" placeholder="Buscar histórico..." oninput="filtrarHistorico()" style="width: 100%; padding: 6px 10px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        <input type="text" id="filtro-historico" placeholder="Buscar por Nome, E-mail ou Protocolo..." oninput="filtrarHistorico()" style="width: 100%; padding: 6px 10px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none;">
                     </div>
                     <div id="lista-historico" class="lista-chats"></div>
                 </div>
@@ -80,9 +80,12 @@
 
                 <div id="chat-ativo-container" style="display: none;" class="chat-box-operador">
                     <div class="chat-header-operador">
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                             <h3 id="nome-cliente-ativo">Cliente</h3>
                             
+                            <!-- Badge do Protocolo -->
+                            <span id="protocolo-cliente-ativo" class="badge-protocolo-header" style="display: none;"></span>
+
                             <!-- Edição de Assunto/Tag -->
                             <div style="position: relative; display: flex; align-items: center;">
                                 <select id="origem-cliente-ativo" onchange="alterarTagChat()" style="appearance: none; background: #e0f2fe; color: #0369a1; padding: 4px 20px 4px 10px; border-radius: 12px; border: 1px solid transparent; font-size: 11px; font-weight: 600; cursor: pointer; outline: none; transition: border 0.2s;">
@@ -91,15 +94,15 @@
                                 <span style="position: absolute; right: 8px; font-size: 8px; pointer-events: none;">▼</span>
                             </div>
 
-                            <span id="badge-nps-ativo" class="badge-nps" style="display: none; background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold;"></span>
+                            <span id="badge-nps-ativo" class="badge-nps" style="display: none;"></span>
                         </div>
                         
                         <!-- Ações do Chat: Transferir e Encerrar -->
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <button id="btn-transferir-chat" onclick="abrirModalTransferir()" style="background: #2563eb; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
+                            <button id="btn-transferir-chat" onclick="abrirModalTransferir()">
                                 🔄 Transferir
                             </button>
-                            <button id="btn-encerrar-chat" onclick="abrirModalTabulacao()" style="background: #dc2626; color: white; border: none; padding: 8px 14px; border-radius: 6px; font-weight: bold; font-size: 12px; cursor: pointer;">
+                            <button id="btn-encerrar-chat" onclick="abrirModalTabulacao()">
                                 Encerrar Atendimento
                             </button>
                         </div>
@@ -107,7 +110,7 @@
 
                     <!-- Conteúdo: Mensagens + Cartão de Contexto ERP -->
                     <div style="display: flex; flex: 1; overflow: hidden;">
-                        <!-- Coluna do Chat (Mensagens, Templates, Resposta) -->
+                        <!-- Coluna do Chat -->
                         <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
                             <div id="painel-messages" class="chat-messages-operador"></div>
 
@@ -123,26 +126,41 @@
                         </div>
 
                         <!-- Coluna Direita: Cartão de Contexto do ERP -->
-                        <aside style="width: 250px; background: #ffffff; border-left: 1px solid #e2e8f0; padding: 16px; font-size: 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto;">
+                        <aside class="card-contexto-erp">
                             <h4 style="font-size: 13px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; font-weight: 700;">📋 Cartão de Contexto ERP</h4>
                             
                             <div>
-                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Status de Identidade:</span>
-                                <div><strong id="ctx-selo-verificado" style="color: #16a34a; font-size: 12px;">-</strong></div>
+                                <span class="ctx-rotulo">Protocolo do Atendimento:</span>
+                                <div><strong id="ctx-protocolo" class="ctx-valor" style="font-family: monospace;">-</strong></div>
                             </div>
 
                             <div>
-                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Número do Contrato:</span>
-                                <div><strong id="ctx-contrato" style="color: #0f172a;">-</strong></div>
+                                <span class="ctx-rotulo">Status de Identidade:</span>
+                                <div><strong id="ctx-selo-verificado" class="ctx-valor">-</strong></div>
                             </div>
 
                             <div>
-                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Imóvel / Unidade:</span>
-                                <div><strong id="ctx-imovel" style="color: #0f172a;">-</strong></div>
+                                <span class="ctx-rotulo">E-mail do Cliente:</span>
+                                <div><strong id="ctx-email" class="ctx-valor" style="word-break: break-all;">-</strong></div>
                             </div>
 
                             <div>
-                                <span style="color: #64748b; font-size: 11px; font-weight: 600;">Página de Origem:</span>
+                                <span class="ctx-rotulo">Telefone do Cliente:</span>
+                                <div><strong id="ctx-telefone" class="ctx-valor">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span class="ctx-rotulo">Número do Contrato:</span>
+                                <div><strong id="ctx-contrato" class="ctx-valor">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span class="ctx-rotulo">Imóvel / Unidade:</span>
+                                <div><strong id="ctx-imovel" class="ctx-valor">-</strong></div>
+                            </div>
+
+                            <div>
+                                <span class="ctx-rotulo">Página de Origem:</span>
                                 <div id="ctx-origem-url" style="word-break: break-all; font-size: 11px; color: #0284c7; margin-top: 2px;">-</div>
                             </div>
                         </aside>

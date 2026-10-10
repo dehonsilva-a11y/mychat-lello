@@ -56,13 +56,21 @@ router.get('/assuntos', async (req, res) => {
     }
 });
 
-// Iniciar Chat com suporte a Identidade & Cartão de Contexto ERP
+// Iniciar Chat com Protocolo Automático & Mensagem Inicial
 router.post('/iniciar', async (req, res) => {
     try {
-        const { nome, email, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
+        const { nome, email, telefone, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
         const id = clienteId ? String(clienteId).trim() : ('cliente_' + Math.floor(Math.random() * 90000 + 10000));
         const isVerificado = Boolean(verificado && verificado !== 'false' && verificado !== false);
         const rotuloModo = isVerificado ? '[Verificado]' : '[Declarado]';
+
+        // Geração do Número de Protocolo (Formato: AAAAMMDDXXXX)
+        const agora = new Date();
+        const ano = agora.getFullYear();
+        const mes = String(agora.getMonth() + 1).padStart(2, '0');
+        const dia = String(agora.getDate()).padStart(2, '0');
+        const aleatorio = Math.floor(1000 + Math.random() * 9000);
+        const protocolo = `${ano}${mes}${dia}${aleatorio}`;
 
         const chatRef = db.collection('chats').doc(id);
         const doc = await chatRef.get();
@@ -70,8 +78,10 @@ router.post('/iniciar', async (req, res) => {
         if (!doc.exists) {
             await chatRef.set({
                 id,
+                protocolo,
                 nome: `${nome || 'Cliente'} ${rotuloModo}`,
                 email: email || 'Não informado',
+                telefone: telefone || 'Não informado',
                 origem: assunto || 'Geral',
                 verificado: isVerificado,
                 contexto: {
@@ -81,7 +91,10 @@ router.post('/iniciar', async (req, res) => {
                 },
                 status: 'Aguardando',
                 atendente: null,
-                mensagens: [],
+                mensagens: [
+                    { de: 'sistema', texto: '👋 Olá! Seja bem-vindo ao nosso atendimento.' },
+                    { de: 'sistema', texto: `📋 O número do seu protocolo é: ${protocolo}` }
+                ],
                 criadoEm: admin.firestore.FieldValue.serverTimestamp()
             });
         }
@@ -89,11 +102,15 @@ router.post('/iniciar', async (req, res) => {
         const snapshot = await db.collection('chats').where('status', '==', 'Aguardando').get();
         const posicao = snapshot.size;
 
+        const chatData = doc.exists ? doc.data() : null;
+        const protocoloRetorno = chatData?.protocolo || protocolo;
+
         res.json({ 
             status: 'Na fila', 
             posicao: posicao > 0 ? posicao : 1, 
             tempoEstimado: '1 min',
-            chatId: id
+            chatId: id,
+            protocolo: protocoloRetorno
         });
     } catch (erro) {
         console.error('[ERRO iniciar]', erro);
@@ -140,7 +157,13 @@ router.get('/mensagem/cliente', async (req, res) => {
         const doc = await db.collection('chats').doc(String(chatId).trim()).get();
         if (doc.exists) {
             const data = doc.data();
-            return res.json({ mensagens: data.mensagens || [], status: data.status, nps: data.nps || null, origem: data.origem });
+            return res.json({ 
+                mensagens: data.mensagens || [], 
+                status: data.status, 
+                nps: data.nps || null, 
+                origem: data.origem,
+                protocolo: data.protocolo || null
+            });
         }
         res.json({ mensagens: [], status: null });
     } catch (erro) {
@@ -417,15 +440,13 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
 
 // --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS) ---
 
-// Obter Indicadores e Métricas do Dashboard com Filtro de Data
+// Obter Indicadores e Métricas do Dashboard com Filtro de Data & Resolutividade
 router.get('/admin/metrics', async (req, res) => {
     try {
         const { inicio, fim } = req.query;
 
-        // Constrói a referência básica para a coleção
         let queryRef = db.collection('chats');
 
-        // Se houver datas fornecidas, converte para objetos Date (com margem para cobrir o fim do dia)
         if (inicio && fim) {
             const dataInicioStr = `${inicio}T00:00:00.000Z`;
             const dataFimStr = `${fim}T23:59:59.999Z`;
@@ -433,7 +454,6 @@ router.get('/admin/metrics', async (req, res) => {
             const inicioDate = new Date(dataInicioStr);
             const fimDate = new Date(dataFimStr);
 
-            // Filtro aplicado no Firestore
             queryRef = queryRef.where('criadoEm', '>=', inicioDate).where('criadoEm', '<=', fimDate);
         }
 
@@ -444,6 +464,9 @@ router.get('/admin/metrics', async (req, res) => {
         let emAtendimento = 0;
         let encerrados = 0;
 
+        let resolvidos = 0;
+        let naoResolvidos = 0;
+
         let somaNps = 0;
         let qtdNps = 0;
 
@@ -452,6 +475,7 @@ router.get('/admin/metrics', async (req, res) => {
 
         const opMap = {};
         const assuntoMap = {};
+        const motivoNaoResolvidoMap = {};
 
         snapshot.forEach(doc => {
             const data = doc.data();
@@ -459,7 +483,20 @@ router.get('/admin/metrics', async (req, res) => {
 
             if (data.status === 'Aguardando') fila++;
             else if (data.status === 'Em Atendimento') emAtendimento++;
-            else if (data.status === 'Encerrado') encerrados++;
+            else if (data.status === 'Encerrado') {
+                encerrados++;
+
+                // Métrica de Resolutividade
+                if (data.tabulacao) {
+                    if (data.tabulacao.resolvido === true) {
+                        resolvidos++;
+                    } else if (data.tabulacao.resolvido === false) {
+                        naoResolvidos++;
+                        const motivo = data.tabulacao.motivoNaoResolvido || 'Não informado';
+                        motivoNaoResolvidoMap[motivo] = (motivoNaoResolvidoMap[motivo] || 0) + 1;
+                    }
+                }
+            }
 
             // Agrupamento por Assunto
             const assunto = data.origem || 'Geral';
@@ -514,11 +551,19 @@ router.get('/admin/metrics', async (req, res) => {
             quantidade: assuntoMap[assunto]
         }));
 
+        const porMotivoNaoResolvido = Object.keys(motivoNaoResolvidoMap).map(motivo => ({
+            motivo,
+            quantidade: motivoNaoResolvidoMap[motivo]
+        }));
+
         res.json({
             total,
             fila,
             emAtendimento,
             encerrados,
+            resolvidos,
+            naoResolvidos,
+            porMotivoNaoResolvido,
             npsMedia: mediaNps,
             qtdNps,
             tmaMinutos,

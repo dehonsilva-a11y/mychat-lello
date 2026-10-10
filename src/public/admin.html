@@ -77,26 +77,21 @@
                         <span class="kpi-sub">Geral registrado</span>
                     </div>
 
+                    <!-- Novos KPIs de Resolutividade -->
                     <div class="kpi-card">
-                        <span class="kpi-titulo">Fila / Em Aberto</span>
-                        <strong id="kpi-fila" class="kpi-valor text-vermelho">0</strong>
-                        <span class="kpi-sub">Aguardando atendente</span>
+                        <span class="kpi-titulo">Resolvidos</span>
+                        <strong id="kpi-resolvidos" class="kpi-valor text-verde">0</strong>
+                        <span class="kpi-sub">Com sucesso</span>
                     </div>
 
                     <div class="kpi-card">
-                        <span class="kpi-titulo">Em Atendimento</span>
-                        <strong id="kpi-em-atendimento" class="kpi-valor text-verde">0</strong>
-                        <span class="kpi-sub">Em andamento</span>
-                    </div>
-
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Encerrados</span>
-                        <strong id="kpi-encerrados" class="kpi-valor text-cinza">0</strong>
-                        <span class="kpi-sub">Finalizados</span>
+                        <span class="kpi-titulo">Não Resolvidos</span>
+                        <strong id="kpi-nao-resolvidos" class="kpi-valor text-vermelho">0</strong>
+                        <span class="kpi-sub">Pendente/Sem solução</span>
                     </div>
                 </div>
 
-                <!-- Detalhes por Colaborador e por Assunto -->
+                <!-- Detalhes por Colaborador, Assunto e Motivo de Não-Resolução -->
                 <div class="dashboard-detalhes-grid">
                     <div class="card-admin">
                         <h4 class="card-titulo-dash">👨‍💼 Performance por Colaborador</h4>
@@ -125,6 +120,22 @@
                                 </tr>
                             </thead>
                             <tbody id="tabela-metricas-assuntos">
+                                <tr><td colspan="2" class="td-carregando">Carregando métricas...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Novo Card: Motivos de Não Resolução -->
+                    <div class="card-admin">
+                        <h4 class="card-titulo-dash">⚠️ Motivos de Não-Resolução</h4>
+                        <table class="tabela-admin">
+                            <thead>
+                                <tr>
+                                    <th>Motivo Tabulado</th>
+                                    <th>Quantidade</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-metricas-motivos">
                                 <tr><td colspan="2" class="td-carregando">Carregando métricas...</td></tr>
                             </tbody>
                         </table>
@@ -159,7 +170,7 @@
                     <!-- Coluna da Esquerda: Lista de Chats -->
                     <div class="espiao-sidebar">
                         <div class="espiao-busca">
-                            <input type="text" id="input-busca-espiao" placeholder="Buscar por nome ou e-mail..." oninput="filtrarListaEspiao()">
+                            <input type="text" id="input-busca-espiao" placeholder="Buscar por Nome, E-mail ou Protocolo..." oninput="filtrarListaEspiao()">
                         </div>
                         <div id="lista-chats-espiao" class="espiao-lista">
                             <div class="espiao-msg-carregando">Carregando chats...</div>
@@ -178,6 +189,8 @@
                             <div>
                                 <strong id="espiao-nome-cliente" class="espiao-chat-header-nome">Cliente</strong>
                                 <span id="espiao-badge-status" class="espiao-badge"></span>
+                                <!-- Badge do Protocolo -->
+                                <span id="espiao-protocolo" class="badge-protocolo" style="margin-left: 8px; display: none;"></span>
                             </div>
                             <div class="espiao-header-atendente">
                                 Atendente: <strong id="espiao-nome-atendente">Aberto</strong>

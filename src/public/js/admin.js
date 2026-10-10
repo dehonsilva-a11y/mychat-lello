@@ -135,48 +135,79 @@ async function carregarMetricasDashboard() {
         const res = await fetch(url);
         const dados = await res.json();
 
+        // KPIs Gerais
         document.getElementById('kpi-total').innerText = dados.total || 0;
         document.getElementById('kpi-fila').innerText = dados.fila || 0;
         document.getElementById('kpi-em-atendimento').innerText = dados.emAtendimento || 0;
         document.getElementById('kpi-encerrados').innerText = dados.encerrados || 0;
         
+        // Novos KPIs de Resolutividade
+        document.getElementById('kpi-resolvidos').innerText = dados.resolvidos || 0;
+        document.getElementById('kpi-nao-resolvidos').innerText = dados.naoResolvidos || 0;
+
         document.getElementById('kpi-nps-media').innerText = dados.npsMedia || '-';
         document.getElementById('kpi-nps-qtd').innerText = `${dados.qtdNps || 0} avaliações`;
         
         document.getElementById('kpi-tma').innerText = `${dados.tmaMinutos || 0} min`;
 
+        // Tabela de Operadores
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
-        tbodyOp.innerHTML = '';
-        if (!dados.porOperador || dados.porOperador.length === 0) {
-            tbodyOp.innerHTML = '<tr><td colspan="4" class="td-carregando">Sem dados no momento.</td></tr>';
-        } else {
-            dados.porOperador.forEach(op => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${op.nome}</strong></td>
-                    <td>${op.atendimentos}</td>
-                    <td>${op.encerrados}</td>
-                    <td><span style="background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">⭐ ${op.npsMedia}</span></td>
-                `;
-                tbodyOp.appendChild(tr);
-            });
+        if (tbodyOp) {
+            tbodyOp.innerHTML = '';
+            if (!dados.porOperador || dados.porOperador.length === 0) {
+                tbodyOp.innerHTML = '<tr><td colspan="4" class="td-carregando">Sem dados no momento.</td></tr>';
+            } else {
+                dados.porOperador.forEach(op => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${op.nome}</strong></td>
+                        <td>${op.atendimentos}</td>
+                        <td>${op.encerrados}</td>
+                        <td><span style="background: #fef08a; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">⭐ ${op.npsMedia}</span></td>
+                    `;
+                    tbodyOp.appendChild(tr);
+                });
+            }
         }
 
+        // Tabela de Assuntos
         const tbodyAssunto = document.getElementById('tabela-metricas-assuntos');
-        tbodyAssunto.innerHTML = '';
-        if (!dados.porAssunto || dados.porAssunto.length === 0) {
-            tbodyAssunto.innerHTML = '<tr><td colspan="2" class="td-carregando">Sem dados no momento.</td></tr>';
-        } else {
-            const assuntosOrdenados = dados.porAssunto.sort((a, b) => b.quantidade - a.quantidade);
-            assuntosOrdenados.forEach(item => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">${item.assunto}</span></td>
-                    <td>${item.quantidade} chamados</td>
-                `;
-                tbodyAssunto.appendChild(tr);
-            });
+        if (tbodyAssunto) {
+            tbodyAssunto.innerHTML = '';
+            if (!dados.porAssunto || dados.porAssunto.length === 0) {
+                tbodyAssunto.innerHTML = '<tr><td colspan="2" class="td-carregando">Sem dados no momento.</td></tr>';
+            } else {
+                const assuntosOrdenados = dados.porAssunto.sort((a, b) => b.quantidade - a.quantidade);
+                assuntosOrdenados.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span style="background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">${item.assunto}</span></td>
+                        <td>${item.quantidade} chamados</td>
+                    `;
+                    tbodyAssunto.appendChild(tr);
+                });
+            }
         }
+
+        // Nova Tabela: Motivos de Não-Resolução
+        const tbodyMotivos = document.getElementById('tabela-metricas-motivos');
+        if (tbodyMotivos) {
+            tbodyMotivos.innerHTML = '';
+            if (!dados.porMotivoNaoResolvido || dados.porMotivoNaoResolvido.length === 0) {
+                tbodyMotivos.innerHTML = '<tr><td colspan="2" class="td-carregando">Nenhum chamado não resolvido no período.</td></tr>';
+            } else {
+                const motivosOrdenados = dados.porMotivoNaoResolvido.sort((a, b) => b.quantidade - a.quantidade);
+                motivosOrdenados.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><span class="badge-motivo-nao-resolvido">${item.motivo}</span></td>
+                        <td>${item.quantidade} ocorrências</td>
+                    `;
+                    tbodyMotivos.appendChild(tr);
+                });
+            }
+        }
+
     } catch (erro) {
         console.error('Erro ao carregar métricas:', erro);
     }
@@ -466,10 +497,12 @@ function filtrarListaEspiao() {
     const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
     
     const filtrados = listaEspiaoCache.filter(chat => {
+        // Agora busca por Nome, Email, Operador OU Protocolo
         const matchTexto = 
             (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
             (chat.email && chat.email.toLowerCase().includes(termo)) ||
-            (chat.atendente && chat.atendente.toLowerCase().includes(termo));
+            (chat.atendente && chat.atendente.toLowerCase().includes(termo)) ||
+            (chat.protocolo && chat.protocolo.toLowerCase().includes(termo));
 
         const assuntoChat = chat.origem || 'Geral';
         const matchAssunto = (filtroAssunto === 'todos') || (assuntoChat === filtroAssunto);
@@ -521,9 +554,21 @@ function selecionarChatEspiao(chat) {
     document.getElementById('espiao-nome-atendente').innerText = chat.atendente || 'Fila / Pendente';
     
     const badge = document.getElementById('espiao-badge-status');
-    badge.innerText = chat.status;
-    badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
-    badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+    if (badge) {
+        badge.innerText = chat.status;
+        badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
+        badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+    }
+
+    const badgeProtocolo = document.getElementById('espiao-protocolo');
+    if (badgeProtocolo) {
+        if (chat.protocolo) {
+            badgeProtocolo.innerText = `Protocolo: ${chat.protocolo}`;
+            badgeProtocolo.style.display = 'inline-block';
+        } else {
+            badgeProtocolo.style.display = 'none';
+        }
+    }
 
     const footer = document.getElementById('espiao-footer');
     if (chat.status === 'Encerrado') {

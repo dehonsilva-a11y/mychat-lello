@@ -6,7 +6,7 @@ let listaHistoricoCache = [];
 let operadorPerfilCache = null;
 let tabulacaoResolvido = null;
 let listaAssuntosCache = [];
-let modoFiltroFila = 'minhas'; // FASE 4: Controlo de filtro da fila ('minhas' ou 'todas')
+let modoFiltroFila = 'minhas'; // Controlo de filtro da fila ('minhas' ou 'todas')
 
 // PROTEÇÃO DE ROTA & CAPTURA DO PERFIL DO OPERADOR VIA BACKEND
 auth.onAuthStateChanged(async user => {
@@ -93,7 +93,7 @@ async function alterarStatusOperador(novoStatus) {
     }
 }
 
-// FASE 4: ALTERAR FILTRO DE COMPETÊNCIAS DA FILA DE ESPERA
+// ALTERAR FILTRO DE COMPETÊNCIAS DA FILA DE ESPERA
 function alterarFiltroFila(novoModo) {
     modoFiltroFila = novoModo;
     carregarListaAtendimentos();
@@ -298,12 +298,11 @@ async function carregarListaAtendimentos() {
     }
 }
 
-// FASE 4: RENDERIZAÇÃO DA FILA COM FILTRAGEM POR COMPETÊNCIAS
+// RENDERIZAÇÃO DA FILA COM FILTRAGEM POR COMPETÊNCIAS
 function renderizarFila(fila) {
     const container = document.getElementById('lista-fila');
     const countElement = document.getElementById('count-fila');
 
-    // Filtragem dinâmica por competências do operador logado
     let filaExibida = fila;
     if (modoFiltroFila === 'minhas' && operadorPerfilCache && Array.isArray(operadorPerfilCache.assuntos) && operadorPerfilCache.assuntos.length > 0) {
         filaExibida = fila.filter(chat => {
@@ -332,7 +331,8 @@ function renderizarFila(fila) {
             <div class="header-card">
                 <strong>${chat.nome}</strong>
             </div>
-            <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">Assunto: ${chat.origem || 'Geral'}</div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">Assunto: ${chat.origem || 'Geral'}</div>
+            <div style="font-size: 10px; color: #94a3b8; font-family: monospace; margin-bottom: 6px;">Prot: ${chat.protocolo || '-'}</div>
             <button class="btn-assumir" onclick="assumirChat('${chat.id}')">Assumir Atendimento</button>
         `;
         container.appendChild(div);
@@ -345,13 +345,11 @@ function renderizarAtivos(ativos) {
     const countElement = document.getElementById('count-ativos');
     const meuNome = obterNomeOperador();
 
-    // Filtra apenas os chamados onde o atendente atribuído é o operador logado
     const meusAtendimentos = ativos.filter(chat => chat.atendente === meuNome);
 
     if (countElement) countElement.innerText = meusAtendimentos.length;
     if (!container) return;
 
-    // Se o chat atualmente aberto no painel deixou de pertencer ao operador, fecha o chat no ecrã
     if (chatSelecionadoId && chatSelecionadoStatus === 'Em Atendimento') {
         const aindaMeu = meusAtendimentos.some(c => c.id === chatSelecionadoId);
         if (!aindaMeu) {
@@ -379,7 +377,7 @@ function renderizarAtivos(ativos) {
                 <strong>${chat.nome}</strong>
                 <span class="badge-origem">${chat.origem || 'Geral'}</span>
             </div>
-            <div style="font-size: 11px; color: #64748b;">Atendente: ${chat.atendente || 'Em aberto'}</div>
+            <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">Prot: ${chat.protocolo || '-'}</div>
         `;
         container.appendChild(div);
     });
@@ -414,6 +412,7 @@ function selecionarChat(chat) {
     const nomeClienteAtivo = document.getElementById('nome-cliente-ativo');
     const selectTag = document.getElementById('origem-cliente-ativo');
     const badgeNps = document.getElementById('badge-nps-ativo');
+    const badgeProtocoloHeader = document.getElementById('protocolo-cliente-ativo');
     const areaResposta = document.getElementById('area-resposta-operador');
     const areaRR = document.getElementById('area-respostas-rapidas');
     const btnEncerrar = document.getElementById('btn-encerrar-chat');
@@ -425,16 +424,31 @@ function selecionarChat(chat) {
     if (nomeClienteAtivo) nomeClienteAtivo.innerText = chat.nome;
     if (selectTag) selectTag.value = chat.origem || 'Geral';
 
+    if (badgeProtocoloHeader) {
+        if (chat.protocolo) {
+            badgeProtocoloHeader.innerText = `Protocolo: ${chat.protocolo}`;
+            badgeProtocoloHeader.style.display = 'inline-block';
+        } else {
+            badgeProtocoloHeader.style.display = 'none';
+        }
+    }
+
     // PREENCHIMENTO DO CARTÃO DE CONTEXTO ERP
+    const protocoloElem = document.getElementById('ctx-protocolo');
     const seloElem = document.getElementById('ctx-selo-verificado');
+    const emailElem = document.getElementById('ctx-email');
+    const telefoneElem = document.getElementById('ctx-telefone');
     const contratoElem = document.getElementById('ctx-contrato');
     const imovelElem = document.getElementById('ctx-imovel');
     const origemUrlElem = document.getElementById('ctx-origem-url');
 
+    if (protocoloElem) protocoloElem.innerText = chat.protocolo || 'Não gerado';
     if (seloElem) {
         seloElem.innerText = chat.verificado ? '🟢 Verificado via Portal' : '⚪ Declarado';
         seloElem.style.color = chat.verificado ? '#16a34a' : '#64748b';
     }
+    if (emailElem) emailElem.innerText = chat.email || 'Não informado';
+    if (telefoneElem) telefoneElem.innerText = chat.telefone || 'Não informado';
     if (contratoElem) contratoElem.innerText = (chat.contexto && chat.contexto.contrato) || 'Não informado';
     if (imovelElem) imovelElem.innerText = (chat.contexto && chat.contexto.imovel) || 'Não informado';
     if (origemUrlElem) origemUrlElem.innerText = (chat.contexto && chat.contexto.origemUrl) || 'Acesso Direto';
@@ -689,7 +703,7 @@ function renderizarHistorico(lista) {
                 <strong>${chat.nome}</strong>
                 <span style="font-size: 10px; color: #dc2626; font-weight: bold;">Encerrado</span>
             </div>
-            <div style="font-size: 11px; color: #64748b;">E-mail: ${chat.email || 'Não informado'}</div>
+            <div style="font-size: 10px; color: #64748b; font-family: monospace;">${chat.protocolo ? 'Prot: ' + chat.protocolo : 'E-mail: ' + (chat.email || 'Não informado')}</div>
         `;
         container.appendChild(div);
     });
@@ -699,7 +713,8 @@ function filtrarHistorico() {
     const termo = document.getElementById('filtro-historico')?.value.toLowerCase() || '';
     const filtrados = listaHistoricoCache.filter(item => 
         (item.nome && item.nome.toLowerCase().includes(termo)) ||
-        (item.email && item.email.toLowerCase().includes(termo))
+        (item.email && item.email.toLowerCase().includes(termo)) ||
+        (item.protocolo && item.protocolo.toLowerCase().includes(termo))
     );
     renderizarHistorico(filtrados);
 }
