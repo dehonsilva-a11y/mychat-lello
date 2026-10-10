@@ -230,10 +230,11 @@ router.get('/atendimento/lista', async (req, res) => {
     }
 });
 
+// ROTA HISTÓRICO: Filtra por datas no banco e valida status em memória (sem erro de índice)
 router.get('/atendimento/historico', async (req, res) => {
     try {
         const { inicio, fim } = req.query;
-        let queryRef = db.collection('chats').where('status', '==', 'Encerrado');
+        let queryRef = db.collection('chats');
 
         if (inicio && fim) {
             const inicioDate = new Date(`${inicio}T00:00:00.000Z`);
@@ -245,7 +246,10 @@ router.get('/atendimento/historico', async (req, res) => {
         const historico = [];
 
         snapshot.forEach(doc => {
-            historico.push(doc.data());
+            const data = doc.data();
+            if (data.status === 'Encerrado' || data.status === 'encerrado') {
+                historico.push(data);
+            }
         });
 
         res.json({ historico });
