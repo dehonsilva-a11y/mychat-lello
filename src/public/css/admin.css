@@ -264,6 +264,40 @@ body {
     border: 1px solid #cbd5e1;
 }
 
+/* Badges Visuais para Tickets em Auditoria Espião */
+.badge-substatus-espiao {
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+}
+
+.badge-substatus-espiao.aberto {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-substatus-espiao.andamento {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.badge-substatus-espiao.resolvido {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.badge-ticket-tag {
+    font-size: 10px;
+    font-weight: bold;
+    background: #f3e8ff;
+    color: #6b21a8;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid #d8b4fe;
+}
+
 /* Tabelas */
 .tabela-container {
     background: #ffffff;
@@ -638,6 +672,11 @@ body {
     transition: all 0.2s;
 }
 
+/* Destaque para Cards de Ticket na Sidebar do Espião */
+.espiao-card.ticket-card {
+    border-left: 4px solid #7c3aed;
+}
+
 .espiao-card:hover {
     border-color: #94a3b8;
     background: #f1f5f9;
@@ -646,6 +685,11 @@ body {
 .espiao-card.ativo {
     border-color: #A00028;
     background: #fff5f7;
+}
+
+.espiao-card.ticket-card.ativo {
+    border-color: #7c3aed;
+    background: #f3e8ff;
 }
 
 .espiao-card-header {

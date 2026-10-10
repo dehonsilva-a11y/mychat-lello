@@ -6,7 +6,7 @@ let listaHistoricoCache = [];
 let operadorPerfilCache = null;
 let tabulacaoResolvido = null;
 let listaAssuntosCache = [];
-let modoFiltroFila = 'minhas'; // Controlo de filtro da fila ('minhas' ou 'todas')
+let modoFiltroFila = 'minhas'; 
 
 // PROTEÇÃO DE ROTA & CAPTURA DO PERFIL DO OPERADOR VIA BACKEND
 auth.onAuthStateChanged(async user => {
@@ -24,20 +24,18 @@ async function carregarPerfilOperador(email) {
         const res = await fetch(prefixo + `/api/operador/perfil?email=${encodeURIComponent(email)}`);
         operadorPerfilCache = await res.json();
 
-        // Atualiza Nome no Cabeçalho (exibe Nome cadastrado em vez do email)
         const nomeDisplay = document.getElementById('nome-operador-display');
         if (nomeDisplay) {
             nomeDisplay.innerText = operadorPerfilCache.nome || email;
         }
 
-        // Exibe o botão de Painel de Gestão apenas para Administradores
         const btnGestao = document.getElementById('btn-acesso-gestao');
         if (btnGestao) {
             btnGestao.style.display = operadorPerfilCache.funcao === 'admin' ? 'inline-block' : 'none';
         }
 
-        // Atualiza a fila para refletir imediatamente os assuntos atribuídos
         carregarListaAtendimentos();
+        carregarMeusTickets();
     } catch (erro) {
         console.error('Erro ao carregar perfil do operador:', erro);
     }
@@ -51,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
     carregarMotivosTabulacao();
 
     setInterval(carregarListaAtendimentos, 2000);
+    setInterval(carregarMeusTickets, 2500); 
     setInterval(carregarMensagensChatAtivo, 1500);
 });
 
@@ -63,7 +62,6 @@ async function fazerLogout() {
     }
 }
 
-// Retorna o nome atualizado do operador
 function obterNomeOperador() {
     if (operadorPerfilCache && operadorPerfilCache.nome) {
         return operadorPerfilCache.nome;
@@ -74,7 +72,6 @@ function obterNomeOperador() {
     return 'Atendente Lello';
 }
 
-// STATUS DE PRESENÇA DO OPERADOR
 async function alterarStatusOperador(novoStatus) {
     if (!auth.currentUser) return;
     const prefixo = window.prefixoApp || '';
@@ -93,13 +90,11 @@ async function alterarStatusOperador(novoStatus) {
     }
 }
 
-// ALTERAR FILTRO DE COMPETÊNCIAS DA FILA DE ESPERA
 function alterarFiltroFila(novoModo) {
     modoFiltroFila = novoModo;
     carregarListaAtendimentos();
 }
 
-// CARREGAR ASSUNTOS PARA ALTERAÇÃO DE TAG NO CHAT
 async function carregarAssuntosSelect() {
     const prefixo = window.prefixoApp || '';
     try {
@@ -122,7 +117,6 @@ async function carregarAssuntosSelect() {
     }
 }
 
-// ALTERAÇÃO EM TEMPO REAL DA TAG/ASSUNTO DO CHAT
 async function alterarTagChat() {
     if (!chatSelecionadoId) return;
     const selectTag = document.getElementById('origem-cliente-ativo');
@@ -147,7 +141,6 @@ async function alterarTagChat() {
     }
 }
 
-// RESPOSTAS RÁPIDAS
 async function carregarRespostasRapidas() {
     const prefixo = window.prefixoApp || '';
     try {
@@ -180,7 +173,6 @@ function renderizarRespostasRapidas(lista) {
     });
 }
 
-// TRANSFERÊNCIA DE ATENDIMENTO
 async function abrirModalTransferir() {
     if (!chatSelecionadoId) return;
     const prefixo = window.prefixoApp || '';
@@ -253,7 +245,6 @@ async function confirmarTransferencia() {
     }
 }
 
-// BEEP SONORO
 function emitirBeepSonoro() {
     try {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -271,9 +262,7 @@ function emitirBeepSonoro() {
 
         osc.start();
         osc.stop(ctx.currentTime + 0.2);
-    } catch (e) {
-        // Ignora bloqueios sem interação prévia
-    }
+    } catch (e) {}
 }
 
 async function carregarListaAtendimentos() {
@@ -298,7 +287,22 @@ async function carregarListaAtendimentos() {
     }
 }
 
-// RENDERIZAÇÃO DA FILA COM FILTRAGEM POR COMPETÊNCIAS
+async function carregarMeusTickets() {
+    const prefixo = window.prefixoApp || '';
+    const meuNome = obterNomeOperador();
+    if (!meuNome || meuNome === 'Atendente Lello') return;
+
+    try {
+        const url = prefixo + `/api/tickets/lista?atendente=${encodeURIComponent(meuNome)}&_t=${Date.now()}`;
+        const resposta = await fetch(url, { cache: 'no-store' });
+        const dados = await resposta.json();
+
+        renderizarTickets(dados.tickets || []);
+    } catch (erro) {
+        console.error('Erro ao carregar tickets:', erro);
+    }
+}
+
 function renderizarFila(fila) {
     const container = document.getElementById('lista-fila');
     const countElement = document.getElementById('count-fila');
@@ -339,7 +343,6 @@ function renderizarFila(fila) {
     });
 }
 
-// RENDERIZAÇÃO APENAS DOS ATENDIMENTOS PERTENCENTES AO OPERADOR LOGADO
 function renderizarAtivos(ativos) {
     const container = document.getElementById('lista-ativos');
     const countElement = document.getElementById('count-ativos');
@@ -383,6 +386,39 @@ function renderizarAtivos(ativos) {
     });
 }
 
+function renderizarTickets(tickets) {
+    const container = document.getElementById('lista-tickets');
+    const countElement = document.getElementById('count-tickets');
+
+    if (countElement) countElement.innerText = tickets.length;
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (tickets.length === 0) {
+        container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; padding: 12px;">Nenhum ticket pendente</div>';
+        return;
+    }
+
+    tickets.forEach(chat => {
+        const statusTicket = chat.subStatusTicket || 'Aberto';
+        const colorClass = statusTicket === 'Aberto' ? 'aberto' : (statusTicket === 'Resolvido' ? 'resolvido' : 'andamento');
+        
+        const div = document.createElement('div');
+        div.className = `card-chat ticket-card ${chatSelecionadoId === chat.id ? 'ativo' : ''}`;
+        div.onclick = () => selecionarChat(chat);
+        div.innerHTML = `
+            <div class="header-card">
+                <strong>${chat.nome}</strong>
+                <span class="badge-substatus ${colorClass}">${statusTicket}</span>
+            </div>
+            <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">🎫 ${chat.motivoTicket || 'Acompanhamento'}</div>
+            <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">Prot: ${chat.protocolo || '-'}</div>
+        `;
+        container.appendChild(div);
+    });
+}
+
 async function assumirChat(chatId) {
     const prefixo = window.prefixoApp || '';
     try {
@@ -417,9 +453,41 @@ function selecionarChat(chat) {
     const areaRR = document.getElementById('area-respostas-rapidas');
     const btnEncerrar = document.getElementById('btn-encerrar-chat');
     const btnTransferir = document.getElementById('btn-transferir-chat');
+    const btnConverter = document.getElementById('btn-converter-ticket');
 
     if (chatVazio) chatVazio.style.display = 'none';
     if (chatAtivoContainer) chatAtivoContainer.style.display = 'flex';
+
+    // Badge Ticket Visual
+    const badgeSubstatusHeader = document.getElementById('badge-ticket-header');
+    if (chat.status === 'Ticket') {
+        const sts = chat.subStatusTicket || 'Aberto';
+        const colorClass = sts === 'Aberto' ? 'aberto' : (sts === 'Resolvido' ? 'resolvido' : 'andamento');
+        if (badgeSubstatusHeader) {
+            badgeSubstatusHeader.innerText = `🎫 TICKET: ${sts}`;
+            badgeSubstatusHeader.className = `badge-substatus ${colorClass}`;
+            badgeSubstatusHeader.style.display = 'inline-block';
+        }
+        if (btnConverter) btnConverter.style.display = 'none'; // Já é ticket
+        if (btnTransferir) btnTransferir.style.display = 'none'; // Transferência de tickets não permitida por padrão aqui
+        
+        // Em vez de "Encerrar Atendimento" padrão, muda para "Concluir Ticket"
+        if (btnEncerrar) {
+            btnEncerrar.innerText = '✅ Concluir Ticket';
+            btnEncerrar.onclick = abrirModalTabulacaoTicket;
+            btnEncerrar.style.display = 'block';
+        }
+    } else {
+        if (badgeSubstatusHeader) badgeSubstatusHeader.style.display = 'none';
+        if (btnConverter) btnConverter.style.display = 'block';
+        if (btnTransferir) btnTransferir.style.display = 'block';
+        
+        if (btnEncerrar) {
+            btnEncerrar.innerText = 'Encerrar Atendimento';
+            btnEncerrar.onclick = abrirModalTabulacao;
+            btnEncerrar.style.display = 'block';
+        }
+    }
 
     if (nomeClienteAtivo) nomeClienteAtivo.innerText = chat.nome;
     if (selectTag) selectTag.value = chat.origem || 'Geral';
@@ -467,11 +535,10 @@ function selecionarChat(chat) {
         if (areaRR) areaRR.style.display = 'none';
         if (btnEncerrar) btnEncerrar.style.display = 'none';
         if (btnTransferir) btnTransferir.style.display = 'none';
+        if (btnConverter) btnConverter.style.display = 'none';
     } else {
         if (areaResposta) areaResposta.style.display = 'flex';
         if (areaRR) areaRR.style.display = 'flex';
-        if (btnEncerrar) btnEncerrar.style.display = 'block';
-        if (btnTransferir) btnTransferir.style.display = 'block';
     }
 
     document.getElementById('painel-messages').innerHTML = '';
@@ -489,6 +556,7 @@ async function carregarMensagensChatAtivo() {
 
         const mensagens = dados.mensagens || [];
         const nps = dados.nps || null;
+        chatSelecionadoStatus = dados.status;
 
         const badgeNps = document.getElementById('badge-nps-ativo');
         if (nps && nps.nota) {
@@ -513,7 +581,7 @@ async function carregarMensagensChatAtivo() {
 
         container.innerHTML = '';
         mensagens.forEach(msg => {
-            desenharBalao(msg, container); // Enviando o objeto inteiro
+            desenharBalao(msg, container); 
         });
 
         container.scrollTop = container.scrollHeight;
@@ -522,7 +590,6 @@ async function carregarMensagensChatAtivo() {
     }
 }
 
-// ENVIO DE TEXTO NORMAL
 async function enviarRespostaOperador() {
     const input = document.getElementById('input-resposta-operador');
     if (!input) return;
@@ -544,15 +611,26 @@ async function enviarRespostaOperador() {
             })
         });
         
+        // Se for Ticket, mudar automaticamente de "Aberto" para "Em Andamento" ao responder
+        if (chatSelecionadoStatus === 'Ticket') {
+            await fetch(prefixo + '/api/tickets/atualizar-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chatId: chatSelecionadoId,
+                    novoStatus: 'Em Andamento',
+                    atendente: obterNomeOperador()
+                })
+            });
+            carregarMeusTickets();
+        }
+
         carregarMensagensChatAtivo();
     } catch (erro) {
         console.error('Erro ao responder:', erro);
     }
 }
 
-// ==========================================
-// LÓGICA DE UPLOAD DE ANEXOS E IMAGENS
-// ==========================================
 function acionarInputAnexo() {
     document.getElementById('input-anexo-operador').click();
 }
@@ -561,9 +639,7 @@ async function enviarAnexoOperador(event) {
     const file = event.target.files[0];
     if (!file || !chatSelecionadoId) return;
 
-    // Reseta o input para permitir enviar o mesmo arquivo depois, se necessário
     event.target.value = '';
-
     const prefixo = window.prefixoApp || '';
     const formData = new FormData();
     formData.append('arquivo', file);
@@ -571,7 +647,6 @@ async function enviarAnexoOperador(event) {
     const container = document.getElementById('painel-messages');
 
     try {
-        // Indicador visual temporário de carregamento
         if (container) {
             const loadingDiv = document.createElement('div');
             loadingDiv.id = 'loading-anexo';
@@ -589,7 +664,6 @@ async function enviarAnexoOperador(event) {
         const dadosUpload = await resUpload.json();
 
         if (dadosUpload.sucesso) {
-            // Envia a mensagem com a URL do anexo e o Tipo
             await fetch(prefixo + '/api/atendimento/responder', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -602,6 +676,20 @@ async function enviarAnexoOperador(event) {
                     nomeArquivo: dadosUpload.nomeArquivo
                 })
             });
+
+            // Se for Ticket, mudar status para "Em Andamento" ao enviar arquivo
+            if (chatSelecionadoStatus === 'Ticket') {
+                await fetch(prefixo + '/api/tickets/atualizar-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chatId: chatSelecionadoId,
+                        novoStatus: 'Em Andamento',
+                        atendente: obterNomeOperador()
+                    })
+                });
+                carregarMeusTickets();
+            }
             carregarMensagensChatAtivo();
         } else {
             alert('Erro ao enviar o anexo: ' + (dadosUpload.erro || 'Desconhecido'));
@@ -616,8 +704,102 @@ async function enviarAnexoOperador(event) {
     }
 }
 
+// ==========================================
+// MÓDULO DE TICKETS
+// ==========================================
+function abrirModalConverterTicket() {
+    if (!chatSelecionadoId) return;
+    const modal = document.getElementById('modal-converter-ticket');
+    if (modal) modal.style.display = 'flex';
+}
 
-// TABULAÇÃO E ENCERRAMENTO DE ATENDIMENTO
+function fecharModalConverterTicket() {
+    const modal = document.getElementById('modal-converter-ticket');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmarConversaoTicket() {
+    const motivoTicket = document.getElementById('motivo-abertura-ticket').value;
+    const previsaoResposta = document.getElementById('previsao-ticket').value;
+
+    if (!motivoTicket || !previsaoResposta) {
+        alert("Preencha o motivo e a previsão de retorno.");
+        return;
+    }
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/atendimento/converter-ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatId: chatSelecionadoId,
+                atendente: obterNomeOperador(),
+                motivoTicket,
+                previsaoResposta
+            })
+        });
+
+        const dados = await res.json();
+        if (dados.sucesso) {
+            fecharModalConverterTicket();
+            chatSelecionadoId = null;
+            document.getElementById('chat-vazio').style.display = 'flex';
+            document.getElementById('chat-ativo-container').style.display = 'none';
+            carregarListaAtendimentos();
+            carregarMeusTickets();
+        }
+    } catch (erro) {
+        console.error("Erro ao converter para ticket:", erro);
+    }
+}
+
+function abrirModalTabulacaoTicket() {
+    if (!chatSelecionadoId) return;
+    const modal = document.getElementById('modal-concluir-ticket');
+    if (modal) modal.style.display = 'flex';
+}
+
+function fecharModalConcluirTicket() {
+    const modal = document.getElementById('modal-concluir-ticket');
+    if (modal) modal.style.display = 'none';
+}
+
+async function confirmarConclusaoTicket() {
+    const motivoConclusao = document.getElementById('motivo-conclusao-ticket').value;
+    if (!motivoConclusao) {
+        alert("Descreva o motivo da conclusão.");
+        return;
+    }
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        const res = await fetch(prefixo + '/api/tickets/atualizar-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chatId: chatSelecionadoId,
+                novoStatus: 'Resolvido',
+                atendente: obterNomeOperador(),
+                motivoConclusao
+            })
+        });
+
+        const dados = await res.json();
+        if (dados.sucesso) {
+            fecharModalConcluirTicket();
+            chatSelecionadoId = null;
+            document.getElementById('chat-vazio').style.display = 'flex';
+            document.getElementById('chat-ativo-container').style.display = 'none';
+            carregarMeusTickets();
+            carregarHistoricoAtendimentos();
+        }
+    } catch (erro) {
+        console.error("Erro ao concluir ticket:", erro);
+    }
+}
+
+// TABULAÇÃO PADRÃO
 async function carregarMotivosTabulacao() {
     const prefixo = window.prefixoApp || '';
     try {
@@ -793,7 +975,6 @@ function tratarKeyPressOperador(event) {
     }
 }
 
-// DESENHO DO BALÃO DINÂMICO (TEXTO, IMAGEM OU ARQUIVO)
 function desenharBalao(msg, container) {
     const isCliente = msg.de === 'cliente';
     const isSistema = msg.de === 'sistema';
@@ -802,7 +983,7 @@ function desenharBalao(msg, container) {
     if (isSistema) {
         const div = document.createElement('div');
         div.style.cssText = 'align-self: center; background: #e0f2fe; color: #0369a1; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; text-align: center; margin: 4px 0;';
-        div.innerText = texto;
+        div.innerHTML = texto; // Usar innerHTML para permitir tags <b> e <br> do sistema
         container.appendChild(div);
         return;
     }
@@ -814,7 +995,6 @@ function desenharBalao(msg, container) {
     
     let conteudoHTML = '';
 
-    // Verifica se é imagem, arquivo ou texto
     if (msg.tipo === 'imagem' && msg.url) {
         conteudoHTML = `<img src="${msg.url}" alt="Imagem anexa" class="msg-img-conteudo" onclick="window.open('${msg.url}', '_blank')">`;
         if (texto) conteudoHTML += `<div style="margin-top: 8px;">${texto}</div>`;

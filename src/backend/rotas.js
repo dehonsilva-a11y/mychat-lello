@@ -220,7 +220,8 @@ router.get('/mensagem/cliente', async (req, res) => {
             const data = doc.data();
             return res.json({ 
                 mensagens: data.mensagens || [], 
-                status: data.status, 
+                status: data.status,
+                subStatusTicket: data.subStatusTicket || null,
                 nps: data.nps || null, 
                 origem: data.origem,
                 protocolo: data.protocolo || null
@@ -280,6 +281,7 @@ router.get('/atendimento/lista', async (req, res) => {
 
         snapshot.forEach(doc => {
             const data = doc.data();
+            // Apenas chats ativos, ignora os Tickets
             if (data.status === 'Aguardando') fila.push(data);
             if (data.status === 'Em Atendimento') emAtendimento.push(data);
         });
@@ -288,6 +290,31 @@ router.get('/atendimento/lista', async (req, res) => {
     } catch (erro) {
         console.error('[ERRO buscar lista]', erro);
         res.status(500).json({ fila: [], emAtendimento: [] });
+    }
+});
+
+// ROTA TICKETS: Listar tickets de um operador ou todos
+router.get('/tickets/lista', async (req, res) => {
+    try {
+        const { atendente } = req.query;
+        let queryRef = db.collection('chats').where('status', '==', 'Ticket');
+        
+        // Se passar atendente, filtra. Se não, traz todos (útil para admin/espiao)
+        if (atendente) {
+            queryRef = queryRef.where('atendente', '==', atendente);
+        }
+
+        const snapshot = await queryRef.get();
+        const tickets = [];
+
+        snapshot.forEach(doc => {
+            tickets.push(doc.data());
+        });
+
+        res.json({ tickets });
+    } catch (erro) {
+        console.error('[ERRO buscar tickets]', erro);
+        res.status(500).json({ tickets: [] });
     }
 });
 
@@ -445,6 +472,79 @@ router.post('/atendimento/responder', async (req, res) => {
         res.status(400).json({ sucesso: false, erro: 'Mensagem vazia' });
     } catch (erro) {
         console.error('[ERRO responder]', erro);
+        res.status(500).json({ sucesso: false });
+    }
+});
+
+// CONVERTER CHAT SÍNCRONO EM TICKET
+router.post('/atendimento/converter-ticket', async (req, res) => {
+    try {
+        const { chatId, atendente, previsaoResposta, motivoTicket } = req.body;
+        const idLimpo = String(chatId).trim();
+        const chatRef = db.collection('chats').doc(idLimpo);
+        const doc = await chatRef.get();
+
+        if (doc.exists) {
+            const dataAtual = doc.data();
+            
+            await chatRef.update({
+                status: 'Ticket',
+                subStatusTicket: 'Aberto',
+                tipoAtendimento: 'ticket',
+                previsaoResposta: previsaoResposta || '24h',
+                motivoTicket: motivoTicket || 'Análise Adicional',
+                mensagens: admin.firestore.FieldValue.arrayUnion({
+                    de: 'sistema',
+                    texto: `🎫 Este atendimento foi convertido num Ticket de Acompanhamento (Protocolo: ${dataAtual.protocolo}).<br><b>Motivo:</b> ${motivoTicket || 'Análise Adicional'}<br><b>Previsão de Retorno:</b> ${previsaoResposta || '24h'}.<br>O operador ${atendente || 'responsável'} continuará o acompanhamento por aqui.`
+                })
+            });
+            return res.json({ sucesso: true });
+        }
+        res.status(404).json({ sucesso: false, erro: 'Chat não encontrado' });
+    } catch (erro) {
+        console.error('[ERRO converter ticket]', erro);
+        res.status(500).json({ sucesso: false });
+    }
+});
+
+// ATUALIZAR STATUS DO TICKET
+router.post('/tickets/atualizar-status', async (req, res) => {
+    try {
+        const { chatId, novoStatus, atendente, motivoConclusao } = req.body;
+        const idLimpo = String(chatId).trim();
+        const chatRef = db.collection('chats').doc(idLimpo);
+        const doc = await chatRef.get();
+
+        if (doc.exists) {
+            let updateData = {
+                subStatusTicket: novoStatus,
+                mensagens: admin.firestore.FieldValue.arrayUnion({
+                    de: 'sistema',
+                    texto: `🔄 Status do Ticket alterado para <b>${novoStatus}</b> por ${atendente}.`
+                })
+            };
+
+            // Se for para Encerrar o Ticket, encerra de vez o chat
+            if (novoStatus === 'Resolvido') {
+                updateData.status = 'Encerrado';
+                updateData.encerradoEm = admin.firestore.FieldValue.serverTimestamp();
+                updateData.tabulacao = {
+                    resolvido: true,
+                    motivoNaoResolvido: motivoConclusao || 'Ticket Concluído',
+                    encerradoEm: admin.firestore.FieldValue.serverTimestamp()
+                };
+                updateData.mensagens = admin.firestore.FieldValue.arrayUnion({
+                    de: 'sistema',
+                    texto: `✅ Ticket Concluído por ${atendente}. Motivo: ${motivoConclusao || 'Resolvido'}.`
+                });
+            }
+
+            await chatRef.update(updateData);
+            return res.json({ sucesso: true });
+        }
+        res.status(404).json({ sucesso: false, erro: 'Ticket não encontrado' });
+    } catch (erro) {
+        console.error('[ERRO atualizar status ticket]', erro);
         res.status(500).json({ sucesso: false });
     }
 });

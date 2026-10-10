@@ -101,7 +101,7 @@ body {
     overflow: hidden;
 }
 
-/* Sidebar com 3 Seções (Fila, Ativos, Histórico) */
+/* Sidebar com Seções (Fila, Ativos, Tickets, Histórico) */
 .sidebar {
     width: 330px;
     background: #ffffff;
@@ -156,6 +156,16 @@ body {
     border-color: #A00028;
     background: #fef2f4;
     box-shadow: 0 2px 8px rgba(160, 0, 40, 0.12);
+}
+
+/* Estilo para cartões de Ticket */
+.card-chat.ticket-card {
+    border-left: 4px solid #7c3aed;
+}
+
+.card-chat.ticket-card:hover {
+    border-color: #7c3aed;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.12);
 }
 
 .card-chat .header-card {
@@ -224,6 +234,23 @@ body {
     margin-bottom: 2px;
 }
 
+/* Botões de Ação no Header */
+#btn-converter-ticket {
+    background: #7c3aed;
+    color: #ffffff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+#btn-converter-ticket:hover {
+    background: #6d28d9;
+}
+
 #btn-encerrar-chat {
     background: #dc2626;
     color: #ffffff;
@@ -254,6 +281,40 @@ body {
 
 #btn-transferir-chat:hover {
     background: #1d4ed8;
+}
+
+/* Badges de Ticket */
+.badge-ticket-tag {
+    font-size: 11px;
+    font-weight: bold;
+    background: #f3e8ff;
+    color: #6b21a8;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid #d8b4fe;
+}
+
+.badge-substatus {
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+}
+
+.badge-substatus.aberto {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.badge-substatus.andamento {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.badge-substatus.resolvido {
+    background: #dcfce7;
+    color: #166534;
 }
 
 .badge-origem {

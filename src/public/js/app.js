@@ -211,6 +211,26 @@ async function carregarRespostasServidor() {
         const chatBody = document.getElementById('chat-messages');
         if (!chatBody) return;
 
+        // Controle visual de conversão para Ticket
+        const widgetHeaderInfo = document.getElementById('widget-header-info');
+        if (dados.status === 'Ticket') {
+            if (!widgetHeaderInfo) {
+                const header = document.querySelector('.chat-header');
+                const titleSpan = header.querySelector('span');
+                titleSpan.style.display = 'none';
+
+                const infoDiv = document.createElement('div');
+                infoDiv.id = 'widget-header-info';
+                infoDiv.className = 'chat-header-info';
+                infoDiv.innerHTML = `
+                    <span class="badge-ticket-widget">🎫 TICKET: ${dados.subStatusTicket || 'Aberto'}</span>
+                `;
+                header.appendChild(infoDiv);
+            } else {
+                widgetHeaderInfo.innerHTML = `<span class="badge-ticket-widget">🎫 TICKET: ${dados.subStatusTicket || 'Aberto'}</span>`;
+            }
+        }
+
         // Se houver mensagens e a quantidade for DIFERENTE da que já temos renderizada, nós redesenhamos o ecrã
         if (dados.mensagens && dados.mensagens.length !== ultimasMensagensClienteCount) {
             
@@ -345,6 +365,15 @@ function reiniciarAtendimento() {
     idClienteAtual = null;
     npsExibido = false;
     ultimasMensagensClienteCount = 0; // Reset na variável do ciclo
+
+    // Restaura o cabeçalho original se for Ticket
+    const widgetHeaderInfo = document.getElementById('widget-header-info');
+    if (widgetHeaderInfo) widgetHeaderInfo.remove();
+    const header = document.querySelector('.chat-header');
+    if (header) {
+        const titleSpan = header.querySelector('span');
+        if (titleSpan) titleSpan.style.display = 'inline-block';
+    }
 
     // Limpa mensagens do chat e restaura o formulário de triagem
     const chatBody = document.getElementById('chat-messages');

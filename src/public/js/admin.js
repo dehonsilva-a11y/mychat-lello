@@ -483,22 +483,31 @@ async function carregarListaEspiao() {
     const dataFim = document.getElementById('espiao-data-fim')?.value || '';
 
     try {
-        let url = prefixo;
         const params = `inicio=${dataInicio}&fim=${dataFim}&_t=${Date.now()}`;
 
         if (filtroStatus === 'abertos') {
-            url += `/api/atendimento/lista?${params}`;
-        } else {
-            url += `/api/atendimento/historico?${params}`;
-        }
+            // Busca os Chats Síncronos Abertos
+            const urlChats = `${prefixo}/api/atendimento/lista?${params}`;
+            const resChats = await fetch(urlChats, { cache: 'no-store' });
+            const dadosChats = await resChats.json();
 
-        const res = await fetch(url, { cache: 'no-store' });
-        const dados = await res.json();
+            // Busca os Tickets Abertos
+            const urlTickets = `${prefixo}/api/tickets/lista?_t=${Date.now()}`;
+            const resTickets = await fetch(urlTickets, { cache: 'no-store' });
+            const dadosTickets = await resTickets.json();
 
-        if (filtroStatus === 'abertos') {
-            listaEspiaoCache = [...(dados.fila || []), ...(dados.emAtendimento || [])];
+            // Mescla tudo na mesma lista do Espião
+            listaEspiaoCache = [
+                ...(dadosChats.fila || []), 
+                ...(dadosChats.emAtendimento || []),
+                ...(dadosTickets.tickets || [])
+            ];
         } else {
-            listaEspiaoCache = dados.historico || [];
+            // Histórico contém Chats Encerrados E Tickets Concluídos (pois ambos recebem status Encerrado)
+            const urlHistorico = `${prefixo}/api/atendimento/historico?${params}`;
+            const resHist = await fetch(urlHistorico, { cache: 'no-store' });
+            const dadosHist = await resHist.json();
+            listaEspiaoCache = dadosHist.historico || [];
         }
 
         filtrarListaEspiao();
@@ -540,15 +549,24 @@ function renderizarListaEspiao(lista) {
     }
 
     lista.forEach(chat => {
+        const isTicket = chat.status === 'Ticket';
         const div = document.createElement('div');
-        div.className = `espiao-card ${espiaoChatSelecionadoId === chat.id ? 'ativo' : ''}`;
+        div.className = `espiao-card ${isTicket ? 'ticket-card' : ''} ${espiaoChatSelecionadoId === chat.id ? 'ativo' : ''}`;
         
-        const corStatus = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+        let corStatus;
+        let statusExibicao = chat.status;
+
+        if (isTicket) {
+            corStatus = '#7c3aed'; // Roxo Lello
+            statusExibicao = `🎫 Ticket (${chat.subStatusTicket || 'Aberto'})`;
+        } else {
+            corStatus = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+        }
         
         div.innerHTML = `
             <div class="espiao-card-header">
                 <span class="espiao-card-nome">${chat.nome}</span>
-                <span class="espiao-card-status" style="color: ${corStatus};">${chat.status}</span>
+                <span class="espiao-card-status" style="color: ${corStatus};">${statusExibicao}</span>
             </div>
             <div class="espiao-card-atendente">Op: ${chat.atendente || 'Sem atribuição'}</div>
         `;
@@ -570,9 +588,15 @@ function selecionarChatEspiao(chat) {
     
     const badge = document.getElementById('espiao-badge-status');
     if (badge) {
-        badge.innerText = chat.status;
-        badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
-        badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+        if (chat.status === 'Ticket') {
+            badge.innerText = `🎫 TICKET: ${chat.subStatusTicket || 'Aberto'}`;
+            badge.style.background = '#f3e8ff';
+            badge.style.color = '#6b21a8';
+        } else {
+            badge.innerText = chat.status;
+            badge.style.background = chat.status === 'Em Atendimento' ? '#dcfce7' : (chat.status === 'Encerrado' ? '#f1f5f9' : '#fee2e2');
+            badge.style.color = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
+        }
     }
 
     const badgeProtocolo = document.getElementById('espiao-protocolo');
@@ -731,7 +755,7 @@ function desenharBalaoEspiao(msg, container) {
     if (isSistema) {
         const div = document.createElement('div');
         div.className = 'msg-sistema';
-        div.innerText = texto;
+        div.innerHTML = texto; // Usamos innerHTML para os badges do sistema (conversão ticket) serem renderizados
         container.appendChild(div);
         return;
     }

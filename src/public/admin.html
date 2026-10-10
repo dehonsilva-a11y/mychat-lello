@@ -30,7 +30,7 @@
         <!-- Navegação por Abas -->
         <nav class="admin-nav">
             <button class="tab-btn active" onclick="alternarAba('dashboard')">📊 Dashboard / Métricas</button>
-            <button class="tab-btn" onclick="alternarAba('espiao')">🕵️‍♂️ Modo Espião / Chats</button>
+            <button class="tab-btn" onclick="alternarAba('espiao')">🕵️‍♂️ Modo Espião / Chats & Tickets</button>
             <button class="tab-btn" onclick="alternarAba('colaboradores')">👥 Colaboradores</button>
             <button class="tab-btn" onclick="alternarAba('respostas')">⚡ Respostas Rápidas</button>
             <button class="tab-btn" onclick="alternarAba('assuntos')">🏷️ Assuntos da Triagem</button>
@@ -95,7 +95,7 @@
                         <span class="kpi-sub">Finalizados</span>
                     </div>
 
-                    <!-- Novos KPIs de Resolutividade -->
+                    <!-- KPIs de Resolutividade -->
                     <div class="kpi-card">
                         <span class="kpi-titulo">Resolvidos</span>
                         <strong id="kpi-resolvidos" class="kpi-valor text-verde">0</strong>
@@ -143,7 +143,7 @@
                         </table>
                     </div>
 
-                    <!-- Novo Card: Motivos de Não Resolução -->
+                    <!-- Card: Motivos de Não Resolução -->
                     <div class="card-admin">
                         <h4 class="card-titulo-dash">⚠️ Motivos de Não-Resolução</h4>
                         <table class="tabela-admin">
@@ -161,12 +161,12 @@
                 </div>
             </section>
 
-            <!-- ABA 1: Modo Espião / Auditoria de Chats -->
+            <!-- ABA 1: Modo Espião / Auditoria de Chats & Tickets -->
             <section id="aba-espiao" class="aba-conteudo" style="display: none; height: 100%;">
                 <div class="secao-header header-espiao">
                     <div>
-                        <h3>🕵️‍♂️ Auditoria e Intervenção de Chats</h3>
-                        <p>Visualize e interaja em chats em tempo real ou consulte o histórico.</p>
+                        <h3>🕵️‍♂️ Auditoria e Intervenção em Chats & Tickets</h3>
+                        <p>Visualize e interaja em chats e tickets em tempo real ou consulte o histórico.</p>
                     </div>
                     <div class="espiao-filtros">
                         <!-- Filtro de Data do Modo Espião -->
@@ -176,8 +176,8 @@
 
                         <!-- Filtro de Status -->
                         <select id="filtro-status-espiao" class="select-moderno" onchange="carregarListaEspiao()">
-                            <option value="abertos">Chats Em Aberto / Fila</option>
-                            <option value="encerrados">Chats Encerrados</option>
+                            <option value="abertos">Chats & Tickets em Aberto</option>
+                            <option value="encerrados">Atendimentos Encerrados</option>
                         </select>
 
                         <!-- Filtro de Assunto -->
@@ -190,13 +190,13 @@
                 </div>
 
                 <div class="espiao-layout">
-                    <!-- Coluna da Esquerda: Lista de Chats -->
+                    <!-- Coluna da Esquerda: Lista de Chats/Tickets -->
                     <div class="espiao-sidebar">
                         <div class="espiao-busca">
                             <input type="text" id="input-busca-espiao" placeholder="Buscar por Nome, E-mail ou Protocolo..." oninput="filtrarListaEspiao()">
                         </div>
                         <div id="lista-chats-espiao" class="espiao-lista">
-                            <div class="espiao-msg-carregando">Carregando chats...</div>
+                            <div class="espiao-msg-carregando">Carregando atendimento...</div>
                         </div>
                     </div>
 
@@ -204,7 +204,7 @@
                     <div class="espiao-chat-area">
                         <!-- Overlay de Chat Vazio -->
                         <div id="espiao-vazio" class="espiao-vazio">
-                            Selecione um chat na lista ao lado para auditar.
+                            Selecione um chat ou ticket na lista ao lado para auditar.
                         </div>
 
                         <!-- Header do Chat Espião -->
@@ -224,7 +224,7 @@
                         <div id="espiao-mensagens" class="espiao-chat-mensagens">
                         </div>
 
-                        <!-- Rodapé de Intervenção do Gestor (Com Suporte a Anexos) -->
+                        <!-- Rodapé de Intervenção do Gestor -->
                         <div id="espiao-footer" class="espiao-chat-footer">
                             <input type="file" id="input-anexo-espiao" style="display: none;" onchange="enviarAnexoEspiao(event)">
                             <button class="btn-anexo-espiao" onclick="acionarInputAnexoEspiao()" title="Enviar imagem ou ficheiro">

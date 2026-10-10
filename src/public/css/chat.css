@@ -36,8 +36,30 @@ html, body {
     font-weight: bold;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     font-size: 15px;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Badge de Ticket no Widget */
+.badge-ticket-widget {
+    background: #7c3aed;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 12px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .chat-body {
@@ -152,7 +174,7 @@ html, body {
     color: white;
     padding: 10px 14px;
     border-radius: 14px 14px 0px 14px;
-    max-width: 75%;
+    max-width: 80%;
     font-size: 13px;
     word-break: break-word;
 }
@@ -163,7 +185,7 @@ html, body {
     color: #333;
     padding: 10px 14px;
     border-radius: 14px 14px 14px 0px;
-    max-width: 75%;
+    max-width: 80%;
     font-size: 13px;
     word-break: break-word;
 }
@@ -178,4 +200,49 @@ html, body {
     font-size: 12px;
     text-align: center;
     width: 90%;
+    line-height: 1.4;
+}
+
+/* Estilos de Anexos e Imagens no Widget */
+.msg-img-widget {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: block;
+    margin-top: 4px;
+    object-fit: cover;
+}
+
+.msg-arquivo-widget-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-top: 4px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.msg-cliente .msg-arquivo-widget-card {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
+.msg-arquivo-widget-nome {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.msg-arquivo-widget-baixar {
+    font-size: 10px;
+    opacity: 0.8;
 }
