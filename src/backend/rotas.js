@@ -281,7 +281,6 @@ router.get('/atendimento/lista', async (req, res) => {
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            // Apenas chats ativos, ignora os Tickets
             if (data.status === 'Aguardando') fila.push(data);
             if (data.status === 'Em Atendimento') emAtendimento.push(data);
         });
@@ -299,7 +298,6 @@ router.get('/tickets/lista', async (req, res) => {
         const { atendente } = req.query;
         let queryRef = db.collection('chats').where('status', '==', 'Ticket');
         
-        // Se passar atendente, filtra. Se não, traz todos (útil para admin/espiao)
         if (atendente) {
             queryRef = queryRef.where('atendente', '==', atendente);
         }
@@ -524,7 +522,6 @@ router.post('/tickets/atualizar-status', async (req, res) => {
                 })
             };
 
-            // Se for para Encerrar o Ticket, encerra de vez o chat
             if (novoStatus === 'Resolvido') {
                 updateData.status = 'Encerrado';
                 updateData.encerradoEm = admin.firestore.FieldValue.serverTimestamp();
@@ -628,40 +625,38 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
     res.json({ respostas });
 });
 
-// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS) ---
+// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS DISCRIMINADAS) ---
 
-// Obter Indicadores e Métricas do Dashboard com Filtro de Data & Resolutividade
 router.get('/admin/metrics', async (req, res) => {
     try {
         const { inicio, fim } = req.query;
-
         let queryRef = db.collection('chats');
 
         if (inicio && fim) {
-            const dataInicioStr = `${inicio}T00:00:00.000Z`;
-            const dataFimStr = `${fim}T23:59:59.999Z`;
-            
-            const inicioDate = new Date(dataInicioStr);
-            const fimDate = new Date(dataFimStr);
-
+            const inicioDate = new Date(`${inicio}T00:00:00.000Z`);
+            const fimDate = new Date(`${fim}T23:59:59.999Z`);
             queryRef = queryRef.where('criadoEm', '>=', inicioDate).where('criadoEm', '<=', fimDate);
         }
 
         const snapshot = await queryRef.get();
 
-        let total = 0;
-        let fila = 0;
-        let emAtendimento = 0;
-        let encerrados = 0;
+        // 1. Operação em Tempo Real (Em Aberto)
+        let filaChat = 0;
+        let emAtendimentoChat = 0;
+        let ticketsAbertos = 0;
+        let ticketsEmAndamento = 0;
 
-        let resolvidos = 0;
-        let naoResolvidos = 0;
+        // 2. Indicadores de Chat Síncrono
+        let totalChats = 0;
+        let encerradosChat = 0;
+        let resolvidosChat = 0;
+        let naoResolvidosChat = 0;
+        let somaNpsChat = 0, qtdNpsChat = 0;
+        let somaDuracaoSegundosChat = 0, qtdDuracaoChat = 0;
 
-        let somaNps = 0;
-        let qtdNps = 0;
-
-        let somaDuracaoSegundos = 0;
-        let qtdDuracao = 0;
+        // 3. Indicadores de Tickets
+        let totalTickets = 0;
+        let ticketsConcluidos = 0;
 
         const opMap = {};
         const assuntoMap = {};
@@ -669,60 +664,74 @@ router.get('/admin/metrics', async (req, res) => {
 
         snapshot.forEach(doc => {
             const data = doc.data();
-            total++;
+            const ehTicket = data.status === 'Ticket' || data.tipoAtendimento === 'ticket' || Boolean(data.subStatusTicket);
 
-            if (data.status === 'Aguardando') fila++;
-            else if (data.status === 'Em Atendimento') emAtendimento++;
-            else if (data.status === 'Encerrado') {
-                encerrados++;
+            // --- CONTAGEM OPERACIONAL EM TEMPO REAL ---
+            if (data.status === 'Aguardando') filaChat++;
+            else if (data.status === 'Em Atendimento') emAtendimentoChat++;
+            else if (data.status === 'Ticket') {
+                if (data.subStatusTicket === 'Aberto') ticketsAbertos++;
+                else ticketsEmAndamento++;
+            }
 
-                if (data.tabulacao) {
-                    if (data.tabulacao.resolvido === true) {
-                        resolvidos++;
-                    } else if (data.tabulacao.resolvido === false) {
-                        naoResolvidos++;
-                        const motivo = data.tabulacao.motivoNaoResolvido || 'Não informado';
-                        motivoNaoResolvidoMap[motivo] = (motivoNaoResolvidoMap[motivo] || 0) + 1;
+            // --- PROCESSAMENTO DISCRIMINADO ---
+            if (ehTicket) {
+                totalTickets++;
+                if (data.status === 'Encerrado') {
+                    ticketsConcluidos++;
+                }
+            } else {
+                totalChats++;
+                if (data.status === 'Encerrado') {
+                    encerradosChat++;
+                    if (data.tabulacao) {
+                        if (data.tabulacao.resolvido === true) resolvidosChat++;
+                        else if (data.tabulacao.resolvido === false) {
+                            naoResolvidosChat++;
+                            const motivo = data.tabulacao.motivoNaoResolvido || 'Não informado';
+                            motivoNaoResolvidoMap[motivo] = (motivoNaoResolvidoMap[motivo] || 0) + 1;
+                        }
                     }
+
+                    // TMA exclusivo para Chat Síncrono
+                    if (data.criadoEm && data.encerradoEm) {
+                        const dtInicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
+                        const dtFim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
+                        if (dtFim > dtInicio) {
+                            somaDuracaoSegundosChat += (dtFim - dtInicio) / 1000;
+                            qtdDuracaoChat++;
+                        }
+                    }
+                }
+
+                // NPS exclusivo de Chat Síncrono
+                if (data.nps && typeof data.nps.nota === 'number') {
+                    somaNpsChat += data.nps.nota;
+                    qtdNpsChat++;
                 }
             }
 
+            // Assuntos gerais
             const assunto = data.origem || 'Geral';
             assuntoMap[assunto] = (assuntoMap[assunto] || 0) + 1;
 
+            // Performance por Operador
             if (data.atendente) {
                 if (!opMap[data.atendente]) {
                     opMap[data.atendente] = { atendimentos: 0, encerrados: 0, somaNps: 0, qtdNps: 0 };
                 }
                 opMap[data.atendente].atendimentos++;
-                if (data.status === 'Encerrado') {
-                    opMap[data.atendente].encerrados++;
-                }
-            }
-
-            if (data.nps && typeof data.nps.nota === 'number') {
-                somaNps += data.nps.nota;
-                qtdNps++;
-
-                if (data.atendente && opMap[data.atendente]) {
+                if (data.status === 'Encerrado') opMap[data.atendente].encerrados++;
+                if (data.nps && typeof data.nps.nota === 'number') {
                     opMap[data.atendente].somaNps += data.nps.nota;
                     opMap[data.atendente].qtdNps++;
                 }
             }
-
-            if (data.criadoEm && data.encerradoEm) {
-                const dtInicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
-                const dtFim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
-
-                if (dtFim > dtInicio) {
-                    somaDuracaoSegundos += (dtFim - dtInicio) / 1000;
-                    qtdDuracao++;
-                }
-            }
         });
 
-        const mediaNps = qtdNps > 0 ? (somaNps / qtdNps).toFixed(1) : '-';
-        const tmaMinutos = qtdDuracao > 0 ? (somaDuracaoSegundos / qtdDuracao / 60).toFixed(1) : '0';
+        const mediaNpsChat = qtdNpsChat > 0 ? (somaNpsChat / qtdNpsChat).toFixed(1) : '-';
+        const tmaMinutosChat = qtdDuracaoChat > 0 ? (somaDuracaoSegundosChat / qtdDuracaoChat / 60).toFixed(1) : '0';
+        const totalAbertoOperacao = filaChat + emAtendimentoChat + ticketsAbertos + ticketsEmAndamento;
 
         const porOperador = Object.keys(opMap).map(nome => ({
             nome,
@@ -742,16 +751,24 @@ router.get('/admin/metrics', async (req, res) => {
         }));
 
         res.json({
-            total,
-            fila,
-            emAtendimento,
-            encerrados,
-            resolvidos,
-            naoResolvidos,
+            totalAbertoOperacao,
+            filaChat,
+            emAtendimentoChat,
+            ticketsAbertos,
+            ticketsEmAndamento,
+
+            totalChats,
+            encerradosChat,
+            resolvidosChat,
+            naoResolvidosChat,
+            npsMediaChat: mediaNpsChat,
+            qtdNpsChat,
+            tmaMinutosChat,
+
+            totalTickets,
+            ticketsConcluidos,
+
             porMotivoNaoResolvido,
-            npsMedia: mediaNps,
-            qtdNps,
-            tmaMinutos,
             porOperador,
             porAssunto
         });

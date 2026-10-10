@@ -40,15 +40,14 @@
         <!-- Conteúdo Principal -->
         <main class="admin-body">
             
-            <!-- ABA 0: Dashboard de Métricas -->
+            <!-- ABA 0: Dashboard de Performance e Operação -->
             <section id="aba-dashboard" class="aba-conteudo active">
                 <div class="secao-header">
                     <div>
-                        <h3>Dashboard de Performance & Satisfação</h3>
-                        <p>Visão consolidada do volume de chamados, satisfação (NPS) e Tempo Médio de Atendimento (TMA).</p>
+                        <h3>Dashboard Operacional & Indicadores</h3>
+                        <p>Acompanhamento em tempo real da operação e métricas discriminadas de Chats e Tickets.</p>
                     </div>
                     
-                    <!-- Filtros de Calendário -->
                     <div class="dash-filtros">
                         <input type="date" id="dash-data-inicio" class="input-data-moderno" title="Data Inicial">
                         <span style="font-size: 12px; font-weight: bold; color: #64748b;">até</span>
@@ -57,59 +56,95 @@
                     </div>
                 </div>
 
-                <!-- Grid de KPIs Gerais -->
-                <div class="kpi-grid">
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Média NPS</span>
-                        <strong id="kpi-nps-media" class="kpi-valor text-amarelo">-</strong>
-                        <span id="kpi-nps-qtd" class="kpi-sub">0 avaliações</span>
-                    </div>
+                <!-- BLOCO 1: VISÃO GERAL DA OPERAÇÃO EM ABERTO -->
+                <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 16px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <h4 style="font-size: 13px; color: #1e293b; font-weight: 700; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                        ⚡ Visão da Operação em Aberto (Agora)
+                    </h4>
 
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Tempo Médio (TMA)</span>
-                        <strong id="kpi-tma" class="kpi-valor text-azul">- min</strong>
-                        <span class="kpi-sub">Tempo de resolução</span>
-                    </div>
+                    <div class="kpi-grid" style="margin-bottom: 0;">
+                        <div class="kpi-card" style="border-left: 4px solid #7c3aed;">
+                            <span class="kpi-titulo">Total em Aberto</span>
+                            <strong id="kpi-op-total" class="kpi-valor text-roxo">0</strong>
+                            <span class="kpi-sub">Fila + Ativos + Tickets</span>
+                        </div>
 
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Total de Chamados</span>
-                        <strong id="kpi-total" class="kpi-valor text-escuro">0</strong>
-                        <span class="kpi-sub">Geral registrado</span>
-                    </div>
+                        <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+                            <span class="kpi-titulo">Fila de Chat</span>
+                            <strong id="kpi-op-fila" class="kpi-valor text-vermelho">0</strong>
+                            <span class="kpi-sub">Síncrono aguardando</span>
+                        </div>
 
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Fila / Em Aberto</span>
-                        <strong id="kpi-fila" class="kpi-valor text-vermelho">0</strong>
-                        <span class="kpi-sub">Aguardando atendente</span>
-                    </div>
+                        <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+                            <span class="kpi-titulo">Chats em Atendimento</span>
+                            <strong id="kpi-op-chat-ativo" class="kpi-valor text-verde">0</strong>
+                            <span class="kpi-sub">Síncrono em andamento</span>
+                        </div>
 
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Em Atendimento</span>
-                        <strong id="kpi-em-atendimento" class="kpi-valor text-verde">0</strong>
-                        <span class="kpi-sub">Em andamento</span>
-                    </div>
+                        <div class="kpi-card" style="border-left: 4px solid #ca8a04;">
+                            <span class="kpi-titulo">Tickets Abertos</span>
+                            <strong id="kpi-op-ticket-aberto" class="kpi-valor text-amarelo">0</strong>
+                            <span class="kpi-sub">Pendentes de atuação</span>
+                        </div>
 
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Encerrados</span>
-                        <strong id="kpi-encerrados" class="kpi-valor text-cinza">0</strong>
-                        <span class="kpi-sub">Finalizados</span>
-                    </div>
-
-                    <!-- KPIs de Resolutividade -->
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Resolvidos</span>
-                        <strong id="kpi-resolvidos" class="kpi-valor text-verde">0</strong>
-                        <span class="kpi-sub">Com sucesso</span>
-                    </div>
-
-                    <div class="kpi-card">
-                        <span class="kpi-titulo">Não Resolvidos</span>
-                        <strong id="kpi-nao-resolvidos" class="kpi-valor text-vermelho">0</strong>
-                        <span class="kpi-sub">Pendente/Sem solução</span>
+                        <div class="kpi-card" style="border-left: 4px solid #2563eb;">
+                            <span class="kpi-titulo">Tickets em Andamento</span>
+                            <strong id="kpi-op-ticket-andamento" class="kpi-valor text-azul">0</strong>
+                            <span class="kpi-sub">Assíncrono em análise</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Detalhes por Colaborador, Assunto e Motivo de Não-Resolução -->
+                <!-- BLOCO 2: MÉTRICAS DISCRIMINADAS (CHAT VS TICKETS) -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px; margin-bottom: 24px;">
+                    
+                    <!-- CARTÃO 1: DESEMPENHO DE CHATS SÍNCRONOS -->
+                    <div class="card-admin" style="border-top: 3px solid #A00028;">
+                        <h4 class="card-titulo-dash" style="font-weight: 700; color: #A00028;">💬 Indicadores de Chat Síncrono</h4>
+                        <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 0;">
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">TMA Chat</span>
+                                <strong id="kpi-chat-tma" class="kpi-valor text-azul">- min</strong>
+                                <span class="kpi-sub">Tempo médio real</span>
+                            </div>
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">NPS Chat</span>
+                                <strong id="kpi-chat-nps" class="kpi-valor text-amarelo">-</strong>
+                                <span id="kpi-chat-nps-qtd" class="kpi-sub">0 avaliações</span>
+                            </div>
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">Total Chats</span>
+                                <strong id="kpi-chat-total" class="kpi-valor text-escuro">0</strong>
+                                <span class="kpi-sub">Atendimentos ao vivo</span>
+                            </div>
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">Resolvidos no Chat</span>
+                                <strong id="kpi-chat-resolvidos" class="kpi-valor text-verde">0</strong>
+                                <span id="kpi-chat-nao-resolvidos" class="kpi-sub">0 não resolvidos</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARTÃO 2: DESEMPENHO DE TICKETS ASSÍNCRONOS -->
+                    <div class="card-admin" style="border-top: 3px solid #7c3aed;">
+                        <h4 class="card-titulo-dash" style="font-weight: 700; color: #7c3aed;">🎫 Indicadores de Tickets</h4>
+                        <div class="kpi-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 0;">
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">Total de Tickets</span>
+                                <strong id="kpi-ticket-total" class="kpi-valor text-roxo">0</strong>
+                                <span class="kpi-sub">Gerados da operação</span>
+                            </div>
+                            <div class="kpi-card">
+                                <span class="kpi-titulo">Tickets Concluídos</span>
+                                <strong id="kpi-ticket-concluidos" class="kpi-valor text-verde">0</strong>
+                                <span class="kpi-sub">Soluções finalizadas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- DETALHES POR COLABORADOR, ASSUNTO E TABULAÇÃO -->
                 <div class="dashboard-detalhes-grid">
                     <div class="card-admin">
                         <h4 class="card-titulo-dash">👨‍💼 Performance por Colaborador</h4>
@@ -143,9 +178,8 @@
                         </table>
                     </div>
 
-                    <!-- Card: Motivos de Não Resolução -->
                     <div class="card-admin">
-                        <h4 class="card-titulo-dash">⚠️ Motivos de Não-Resolução</h4>
+                        <h4 class="card-titulo-dash">⚠️ Motivos de Não-Resolução (Chat)</h4>
                         <table class="tabela-admin">
                             <thead>
                                 <tr>
@@ -176,8 +210,15 @@
 
                         <!-- Filtro de Status -->
                         <select id="filtro-status-espiao" class="select-moderno" onchange="carregarListaEspiao()">
-                            <option value="abertos">Chats & Tickets em Aberto</option>
-                            <option value="encerrados">Atendimentos Encerrados</option>
+                            <option value="abertos">Chamados em Aberto</option>
+                            <option value="encerrados">Chamados Encerrados</option>
+                        </select>
+
+                        <!-- Filtro de Modalidade (Chat vs Ticket) -->
+                        <select id="filtro-tipo-espiao" class="select-moderno" onchange="filtrarListaEspiao()">
+                            <option value="todos">Todos os Tipos (Chats & Tickets)</option>
+                            <option value="chat">💬 Apenas Chats Síncronos</option>
+                            <option value="ticket">🎫 Apenas Tickets Assíncronos</option>
                         </select>
 
                         <!-- Filtro de Assunto -->
@@ -196,23 +237,20 @@
                             <input type="text" id="input-busca-espiao" placeholder="Buscar por Nome, E-mail ou Protocolo..." oninput="filtrarListaEspiao()">
                         </div>
                         <div id="lista-chats-espiao" class="espiao-lista">
-                            <div class="espiao-msg-carregando">Carregando atendimento...</div>
+                            <div class="espiao-msg-carregando">Carregando chamados...</div>
                         </div>
                     </div>
 
                     <!-- Coluna da Direita: Área da Conversa -->
                     <div class="espiao-chat-area">
-                        <!-- Overlay de Chat Vazio -->
                         <div id="espiao-vazio" class="espiao-vazio">
                             Selecione um chat ou ticket na lista ao lado para auditar.
                         </div>
 
-                        <!-- Header do Chat Espião -->
                         <div class="espiao-chat-header">
                             <div>
                                 <strong id="espiao-nome-cliente" class="espiao-chat-header-nome">Cliente</strong>
                                 <span id="espiao-badge-status" class="espiao-badge"></span>
-                                <!-- Badge do Protocolo -->
                                 <span id="espiao-protocolo" class="badge-protocolo" style="margin-left: 8px; display: none;"></span>
                             </div>
                             <div class="espiao-header-atendente">
@@ -220,11 +258,9 @@
                             </div>
                         </div>
 
-                        <!-- Corpo de Mensagens -->
                         <div id="espiao-mensagens" class="espiao-chat-mensagens">
                         </div>
 
-                        <!-- Rodapé de Intervenção do Gestor -->
                         <div id="espiao-footer" class="espiao-chat-footer">
                             <input type="file" id="input-anexo-espiao" style="display: none;" onchange="enviarAnexoEspiao(event)">
                             <button class="btn-anexo-espiao" onclick="acionarInputAnexoEspiao()" title="Enviar imagem ou ficheiro">
@@ -337,8 +373,6 @@
     </div>
 
     <!-- Modais -->
-
-    <!-- Modal para Adicionar/Editar Colaborador -->
     <div id="modal-operador" class="modal-overlay" style="display: none;">
         <div class="modal-card-admin">
             <h3 id="modal-titulo">Cadastrar Colaborador</h3>
@@ -376,7 +410,6 @@
         </div>
     </div>
 
-    <!-- Modal para Adicionar/Editar Respostas Rápidas -->
     <div id="modal-resposta-rapida" class="modal-overlay" style="display: none;">
         <div class="modal-card-admin">
             <h3 id="modal-titulo-resposta">Nova Resposta Rápida</h3>
@@ -401,13 +434,9 @@
         </div>
     </div>
 
-    <!-- SDKs do Firebase Auth -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-
-    <!-- Configuração do Firebase -->
     <script src="js/firebase-config.js"></script>
-
     <script src="js/prefixo.js"></script>
     <script src="js/admin.js"></script>
 </body>

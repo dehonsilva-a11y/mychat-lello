@@ -147,19 +147,24 @@ async function carregarMetricasDashboard() {
             if (el) el.innerText = valor;
         };
 
-        // KPIs Gerais
-        atualizaKpi('kpi-total', dados.total || 0);
-        atualizaKpi('kpi-fila', dados.fila || 0);
-        atualizaKpi('kpi-em-atendimento', dados.emAtendimento || 0);
-        atualizaKpi('kpi-encerrados', dados.encerrados || 0);
-        
-        // Novos KPIs de Resolutividade
-        atualizaKpi('kpi-resolvidos', dados.resolvidos || 0);
-        atualizaKpi('kpi-nao-resolvidos', dados.naoResolvidos || 0);
+        // 1. Visão Operacional em Aberto
+        atualizaKpi('kpi-op-total', dados.totalAbertoOperacao || 0);
+        atualizaKpi('kpi-op-fila', dados.filaChat || 0);
+        atualizaKpi('kpi-op-chat-ativo', dados.emAtendimentoChat || 0);
+        atualizaKpi('kpi-op-ticket-aberto', dados.ticketsAbertos || 0);
+        atualizaKpi('kpi-op-ticket-andamento', dados.ticketsEmAndamento || 0);
 
-        atualizaKpi('kpi-nps-media', dados.npsMedia || '-');
-        atualizaKpi('kpi-nps-qtd', `${dados.qtdNps || 0} avaliações`);
-        atualizaKpi('kpi-tma', `${dados.tmaMinutos || 0} min`);
+        // 2. Indicadores do Chat Síncrono
+        atualizaKpi('kpi-chat-tma', `${dados.tmaMinutosChat || 0} min`);
+        atualizaKpi('kpi-chat-nps', dados.npsMediaChat || '-');
+        atualizaKpi('kpi-chat-nps-qtd', `${dados.qtdNpsChat || 0} avaliações`);
+        atualizaKpi('kpi-chat-total', dados.totalChats || 0);
+        atualizaKpi('kpi-chat-resolvidos', dados.resolvidosChat || 0);
+        atualizaKpi('kpi-chat-nao-resolvidos', `${dados.naoResolvidosChat || 0} não resolvidos`);
+
+        // 3. Indicadores de Tickets
+        atualizaKpi('kpi-ticket-total', dados.totalTickets || 0);
+        atualizaKpi('kpi-ticket-concluidos', dados.ticketsConcluidos || 0);
 
         // Tabela de Operadores (Com Tooltip no e-mail)
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
@@ -200,7 +205,7 @@ async function carregarMetricasDashboard() {
             }
         }
 
-        // Nova Tabela: Motivos de Não-Resolução
+        // Tabela de Motivos de Não-Resolução
         const tbodyMotivos = document.getElementById('tabela-metricas-motivos');
         if (tbodyMotivos) {
             tbodyMotivos.innerHTML = '';
@@ -519,8 +524,15 @@ async function carregarListaEspiao() {
 function filtrarListaEspiao() {
     const termo = (document.getElementById('input-busca-espiao')?.value || '').toLowerCase();
     const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
+    const filtroTipo = document.getElementById('filtro-tipo-espiao')?.value || 'todos'; // NOVO: Chat vs Ticket
     
     const filtrados = listaEspiaoCache.filter(chat => {
+        const isTicket = chat.status === 'Ticket' || chat.tipoAtendimento === 'ticket' || Boolean(chat.subStatusTicket);
+
+        // Filtro de Modalidade (Chat vs Ticket)
+        if (filtroTipo === 'chat' && isTicket) return false;
+        if (filtroTipo === 'ticket' && !isTicket) return false;
+
         // Busca por Nome, Email, Operador OU Protocolo
         const matchTexto = 
             (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
@@ -544,12 +556,12 @@ function renderizarListaEspiao(lista) {
     container.innerHTML = '';
     
     if (lista.length === 0) {
-        container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px;">Nenhum chat encontrado.</div>';
+        container.innerHTML = '<div style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px;">Nenhum chamado encontrado.</div>';
         return;
     }
 
     lista.forEach(chat => {
-        const isTicket = chat.status === 'Ticket';
+        const isTicket = chat.status === 'Ticket' || chat.tipoAtendimento === 'ticket' || Boolean(chat.subStatusTicket);
         const div = document.createElement('div');
         div.className = `espiao-card ${isTicket ? 'ticket-card' : ''} ${espiaoChatSelecionadoId === chat.id ? 'ativo' : ''}`;
         
@@ -588,7 +600,8 @@ function selecionarChatEspiao(chat) {
     
     const badge = document.getElementById('espiao-badge-status');
     if (badge) {
-        if (chat.status === 'Ticket') {
+        const isTicket = chat.status === 'Ticket' || chat.tipoAtendimento === 'ticket' || Boolean(chat.subStatusTicket);
+        if (isTicket) {
             badge.innerText = `🎫 TICKET: ${chat.subStatusTicket || 'Aberto'}`;
             badge.style.background = '#f3e8ff';
             badge.style.color = '#6b21a8';
