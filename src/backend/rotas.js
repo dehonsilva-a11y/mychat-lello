@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { admin, db, bucket } = require('./firebase');
 
 // Configuração do Multer (Upload em memória até 10MB)
@@ -9,6 +10,32 @@ const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 }
 });
+
+// Configuração do Transporter de E-mail (Nodemailer / SMTP)
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: process.env.SMTP_PORT || 587,
+    secure: false,
+    auth: {
+        user: process.env.SMTP_USER || 'seu-email-suporte@lello.com.br',
+        pass: process.env.SMTP_PASS || 'sua-senha-ou-token-app'
+    }
+});
+
+// Helper de Envio de E-mail Transacional
+async function enviarEmailNotificacao({ para, assunto, html }) {
+    if (!para || para === 'Não informado' || !para.includes('@')) return;
+    try {
+        await transporter.sendMail({
+            from: '"Mychat Lello" <' + (process.env.SMTP_USER || 'suporte@lello.com.br') + '>',
+            to: para,
+            subject: assunto,
+            html: html
+        });
+    } catch (erro) {
+        console.error('❌ [ERRO ENVIO E-MAIL]:', erro.message);
+    }
+}
 
 // --- ROTA DE UPLOAD DE ARQUIVOS / IMAGENS ---
 
@@ -23,7 +50,6 @@ router.post('/upload', upload.single('arquivo'), async (req, res) => {
         const nomeUnico = `${Date.now()}_${nomeOriginal.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
         const file = bucket.file(`anexos/${nomeUnico}`);
 
-        // Gera token único de download do Firebase Storage
         const token = crypto.randomUUID();
 
         await file.save(req.file.buffer, {
@@ -36,7 +62,6 @@ router.post('/upload', upload.single('arquivo'), async (req, res) => {
             resumable: false
         });
 
-        // URL pública com token nativo do Firebase
         const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(file.name)}?alt=media&token=${token}`;
         const ehImagem = mimeType.startsWith('image/');
         const tipo = ehImagem ? 'imagem' : 'arquivo';
@@ -55,7 +80,6 @@ router.post('/upload', upload.single('arquivo'), async (req, res) => {
 
 // --- ROTAS DE CONFIGURAÇÃO & PERFIL ---
 
-// Obter perfil do operador (Admin vs Colaborador)
 router.get('/operador/perfil', async (req, res) => {
     try {
         const { email } = req.query;
@@ -68,7 +92,6 @@ router.get('/operador/perfil', async (req, res) => {
             return res.json(doc.data());
         }
 
-        // Perfil padrão se ainda não estiver cadastrado no banco
         const perfilPadrao = {
             email: emailLimpo,
             nome: emailLimpo.split('@')[0],
@@ -86,14 +109,12 @@ router.get('/operador/perfil', async (req, res) => {
 
 // --- ROTAS DO CLIENTE (WIDGET) ---
 
-// Obter assuntos dinâmicos para a triagem do widget
 router.get('/assuntos', async (req, res) => {
     try {
         const doc = await db.collection('configuracoes').doc('assuntos').get();
         if (doc.exists && doc.data().lista && doc.data().lista.length > 0) {
             return res.json({ assuntos: doc.data().lista });
         }
-        // Lista padrão de contingência
         const listaPadrao = [
             'Geral',
             'Financeiro / Boletos',
@@ -107,7 +128,6 @@ router.get('/assuntos', async (req, res) => {
     }
 });
 
-// Iniciar Chat com Protocolo Automático & Mensagem Inicial
 router.post('/iniciar', async (req, res) => {
     try {
         const { nome, email, telefone, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
@@ -115,7 +135,6 @@ router.post('/iniciar', async (req, res) => {
         const isVerificado = Boolean(verificado && verificado !== 'false' && verificado !== false);
         const rotuloModo = isVerificado ? '[Verificado]' : '[Declarado]';
 
-        // Geração do Número de Protocolo (Formato: AAAAMMDDXXXX)
         const agora = new Date();
         const ano = agora.getFullYear();
         const mes = String(agora.getMonth() + 1).padStart(2, '0');
@@ -169,7 +188,7 @@ router.post('/iniciar', async (req, res) => {
     }
 });
 
-// Envio de mensagem pelo Cliente (Com Suporte a Anexos/Imagens)
+// Envio de mensagem pelo Cliente (GATILHO: E-mail de Alerta para o Colaborador)
 router.post('/mensagem', async (req, res) => {
     try {
         const { mensagem, chatId, tipo, url, nomeArquivo } = req.body;
@@ -201,6 +220,34 @@ router.post('/mensagem', async (req, res) => {
             await chatRef.update({
                 mensagens: admin.firestore.FieldValue.arrayUnion(objetoMensagem)
             });
+
+            if (doc.exists) {
+                const chatData = doc.data();
+                // Notifica o colaborador responsável quando o morador responde no Ticket
+                if (chatData.status === 'Ticket' && chatData.atendente) {
+                    const opSnapshot = await db.collection('operadores').where('nome', '==', chatData.atendente).get();
+                    if (!opSnapshot.empty) {
+                        const emailColaborador = opSnapshot.docs[0].data().email;
+                        enviarEmailNotificacao({
+                            para: emailColaborador,
+                            assunto: `🔔 [Mychat] Resposta do Morador no Ticket #${chatData.protocolo || idLimpo}`,
+                            html: `
+                                <div style="font-family: sans-serif; padding: 20px; background: #f8fafc; color: #1e293b;">
+                                    <div style="max-width: 500px; margin: auto; background: white; border-radius: 8px; padding: 20px; border: 1px solid #e2e8f0;">
+                                        <h3 style="color: #A00028; margin-top: 0;">O morador respondeu ao Ticket!</h3>
+                                        <p><strong>Cliente:</strong> ${chatData.nome}</p>
+                                        <p><strong>Protocolo:</strong> ${chatData.protocolo}</p>
+                                        <div style="background: #f1f5f9; padding: 12px; border-radius: 6px; border-left: 4px solid #7c3aed; margin: 16px 0;">
+                                            ${mensagem || '<i>[Anexo Enviado]</i>'}
+                                        </div>
+                                        <p style="font-size: 12px; color: #64748b;">Acesse o Cockpit do Mychat para dar andamento ao atendimento.</p>
+                                    </div>
+                                </div>
+                            `
+                        });
+                    }
+                }
+            }
         }
 
         res.json({ sucesso: true });
@@ -292,7 +339,6 @@ router.get('/atendimento/lista', async (req, res) => {
     }
 });
 
-// ROTA TICKETS: Listar tickets de um operador ou todos
 router.get('/tickets/lista', async (req, res) => {
     try {
         const { atendente } = req.query;
@@ -316,7 +362,6 @@ router.get('/tickets/lista', async (req, res) => {
     }
 });
 
-// ROTA HISTÓRICO: Filtra por datas no banco e valida status em memória
 router.get('/atendimento/historico', async (req, res) => {
     try {
         const { inicio, fim } = req.query;
@@ -345,7 +390,6 @@ router.get('/atendimento/historico', async (req, res) => {
     }
 });
 
-// Assumir atendimento + Mensagem Automática Padrão de Boas-vindas
 router.post('/atendimento/assumir', async (req, res) => {
     try {
         const { chatId, atendente } = req.body;
@@ -379,7 +423,6 @@ router.post('/atendimento/assumir', async (req, res) => {
     }
 });
 
-// Alterar Assunto/Tag do Atendimento
 router.post('/atendimento/alterar-assunto', async (req, res) => {
     try {
         const { chatId, novoAssunto, operador } = req.body;
@@ -430,7 +473,7 @@ router.post('/atendimento/transferir', async (req, res) => {
     }
 });
 
-// Resposta do Operador / Gestor (Com Suporte a Anexos/Imagens)
+// Resposta do Operador / Gestor (GATILHO: E-mail de Atualização do Ticket para o Morador)
 router.post('/atendimento/responder', async (req, res) => {
     try {
         const { chatId, mensagem, atendente, tipo, url, nomeArquivo } = req.body;
@@ -450,6 +493,7 @@ router.post('/atendimento/responder', async (req, res) => {
         }
 
         if (mensagem || url) {
+            const chatData = doc.exists ? doc.data() : {};
             const nomeAtendente = atendente || 'Atendente Lello';
             const objetoMensagem = {
                 de: 'atendente',
@@ -464,6 +508,57 @@ router.post('/atendimento/responder', async (req, res) => {
             await chatRef.update({
                 mensagens: admin.firestore.FieldValue.arrayUnion(objetoMensagem)
             });
+
+            // Se for Ticket, envia e-mail de atualização para o Morador
+            if (chatData.status === 'Ticket') {
+                const hostUrl = `${req.protocol}://${req.get('host')}`;
+                const linkWidget = `${hostUrl}/index.html?chatId=${idLimpo}`;
+
+                let blocoAnexoHtml = '';
+                if (url) {
+                    blocoAnexoHtml = `
+                        <div style="margin-top: 12px; padding: 10px; background: #f1f5f9; border-radius: 6px; font-size: 13px;">
+                            📄 <strong>Anexo enviado:</strong> ${nomeArquivo || 'Documento'}<br>
+                            <a href="${url}" target="_blank" style="color: #7c3aed; font-weight: bold; text-decoration: none;">Clique aqui para baixar/visualizar</a>
+                        </div>
+                    `;
+                }
+
+                enviarEmailNotificacao({
+                    para: chatData.email,
+                    assunto: `🎫 Atualização no seu Ticket #${chatData.protocolo || idLimpo} - Lello`,
+                    html: `
+                        <div style="font-family: sans-serif; background-color: #f8fafc; padding: 24px; color: #1e293b;">
+                            <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 2px solid #A00028; padding-bottom: 12px; margin-bottom: 20px;">
+                                    <h2 style="color: #A00028; margin: 0; font-size: 20px;">Mychat Lello</h2>
+                                    <span style="font-size: 12px; font-family: monospace; color: #64748b;">Prot: ${chatData.protocolo || '-'}</span>
+                                </div>
+
+                                <p style="font-size: 15px;">Olá, <strong>${chatData.nome ? chatData.nome.split(' ')[0] : 'Cliente'}</strong>!</p>
+                                <p style="font-size: 14px; color: #475569;">O seu ticket recebeu uma nova resposta da nossa equipe de atendimento:</p>
+
+                                <div style="background: #faf5ff; border-left: 4px solid #7c3aed; padding: 16px; border-radius: 6px; font-size: 14px; color: #334155; margin: 20px 0;">
+                                    <strong>${nomeAtendente}:</strong><br>
+                                    <p style="margin: 8px 0 0 0; white-space: pre-wrap;">${mensagem || ''}</p>
+                                    ${blocoAnexoHtml}
+                                </div>
+
+                                <div style="text-align: center; margin: 28px 0 16px 0;">
+                                    <a href="${linkWidget}" target="_blank" style="background: #A00028; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+                                        💬 Abrir e Responder no Chat
+                                    </a>
+                                </div>
+
+                                <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+                                    Lello Condomínios e Imóveis • Central de Atendimento
+                                </p>
+                            </div>
+                        </div>
+                    `
+                });
+            }
+
             return res.json({ sucesso: true });
         }
 
@@ -493,9 +588,38 @@ router.post('/atendimento/converter-ticket', async (req, res) => {
                 motivoTicket: motivoTicket || 'Análise Adicional',
                 mensagens: admin.firestore.FieldValue.arrayUnion({
                     de: 'sistema',
-                    texto: `🎫 Este atendimento foi convertido num Ticket de Acompanhamento (Protocolo: ${dataAtual.protocolo}).<br><b>Motivo:</b> ${motivoTicket || 'Análise Adicional'}<br><b>Previsão de Retorno:</b> ${previsaoResposta || '24h'}.<br>O operador ${atendente || 'responsável'} continuará o acompanhamento por aqui.`
+                    texto: `🎫 Este atendimento foi converted num Ticket de Acompanhamento (Protocolo: ${dataAtual.protocolo}).<br><b>Motivo:</b> ${motivoTicket || 'Análise Adicional'}<br><b>Previsão de Retorno:</b> ${previsaoResposta || '24h'}.<br>O operador ${atendente || 'responsável'} continuará o acompanhamento por aqui.`
                 })
             });
+
+            // Notifica o morador da conversão por e-mail
+            const hostUrl = `${req.protocol}://${req.get('host')}`;
+            const linkWidget = `${hostUrl}/index.html?chatId=${idLimpo}`;
+
+            enviarEmailNotificacao({
+                para: dataAtual.email,
+                assunto: `🎫 Atendimento Convertido em Ticket (Protocolo #${dataAtual.protocolo})`,
+                html: `
+                    <div style="font-family: sans-serif; background-color: #f8fafc; padding: 24px; color: #1e293b;">
+                        <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
+                            <h2 style="color: #7c3aed; margin-top: 0;">🎫 Seu atendimento virou um Ticket</h2>
+                            <p>Olá, <strong>${dataAtual.nome ? dataAtual.nome.split(' ')[0] : 'Cliente'}</strong>!</p>
+                            <p>O seu atendimento de protocolo <strong>#${dataAtual.protocolo}</strong> foi transformado num Ticket para acompanhamento especializado.</p>
+                            <ul style="background: #f1f5f9; padding: 16px 24px; border-radius: 8px; font-size: 13px;">
+                                <li><strong>Motivo:</strong> ${motivoTicket || 'Análise Técnica'}</li>
+                                <li><strong>Previsão de Retorno:</strong> ${previsaoResposta || '24h'}</li>
+                                <li><strong>Responsável:</strong> ${atendente || 'Equipe Lello'}</li>
+                            </ul>
+                            <div style="text-align: center; margin-top: 24px;">
+                                <a href="${linkWidget}" target="_blank" style="background: #7c3aed; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+                                    Acompanhar Ticket no Portal
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `
+            });
+
             return res.json({ sucesso: true });
         }
         res.status(404).json({ sucesso: false, erro: 'Chat não encontrado' });
@@ -505,7 +629,7 @@ router.post('/atendimento/converter-ticket', async (req, res) => {
     }
 });
 
-// ATUALIZAR STATUS DO TICKET
+// ATUALIZAR STATUS DO TICKET (GATILHO: E-mail de Conclusão do Ticket)
 router.post('/tickets/atualizar-status', async (req, res) => {
     try {
         const { chatId, novoStatus, atendente, motivoConclusao } = req.body;
@@ -514,6 +638,7 @@ router.post('/tickets/atualizar-status', async (req, res) => {
         const doc = await chatRef.get();
 
         if (doc.exists) {
+            const chatData = doc.data();
             let updateData = {
                 subStatusTicket: novoStatus,
                 mensagens: admin.firestore.FieldValue.arrayUnion({
@@ -533,6 +658,40 @@ router.post('/tickets/atualizar-status', async (req, res) => {
                 updateData.mensagens = admin.firestore.FieldValue.arrayUnion({
                     de: 'sistema',
                     texto: `✅ Ticket Concluído por ${atendente}. Motivo: ${motivoConclusao || 'Resolvido'}.`
+                });
+
+                const hostUrl = `${req.protocol}://${req.get('host')}`;
+                const linkWidget = `${hostUrl}/index.html?chatId=${idLimpo}`;
+
+                enviarEmailNotificacao({
+                    para: chatData.email,
+                    assunto: `✅ Ticket #${chatData.protocolo || idLimpo} Concluído - Lello`,
+                    html: `
+                        <div style="font-family: sans-serif; background-color: #f8fafc; padding: 24px; color: #1e293b;">
+                            <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 24px; border: 1px solid #e2e8f0;">
+                                <div style="border-bottom: 2px solid #16a34a; padding-bottom: 12px; margin-bottom: 20px;">
+                                    <h2 style="color: #16a34a; margin: 0; font-size: 20px;">✅ Ticket Concluído</h2>
+                                    <span style="font-size: 12px; font-family: monospace; color: #64748b;">Prot: ${chatData.protocolo || '-'}</span>
+                                </div>
+
+                                <p style="font-size: 15px;">Olá, <strong>${chatData.nome ? chatData.nome.split(' ')[0] : 'Cliente'}</strong>!</p>
+                                <p style="font-size: 14px; color: #475569;">Informamos que a sua solicitação referente ao ticket foi finalizada com sucesso!</p>
+
+                                <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 16px; border-radius: 6px; font-size: 14px; color: #166534; margin: 20px 0;">
+                                    <strong>Resumo da Solução:</strong><br>
+                                    <p style="margin: 8px 0 0 0;">${motivoConclusao || 'Solicitação atendida com sucesso.'}</p>
+                                </div>
+
+                                <p style="font-size: 13px; color: #64748b;">Você pode visualizar o histórico de mensagens clicando no botão abaixo. Este chamado está encerrado para novos envios.</p>
+
+                                <div style="text-align: center; margin: 24px 0 12px 0;">
+                                    <a href="${linkWidget}" target="_blank" style="background: #16a34a; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px; display: inline-block;">
+                                        👁️ Visualizar Histórico do Ticket
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    `
                 });
             }
 
@@ -640,13 +799,11 @@ router.get('/admin/metrics', async (req, res) => {
 
         const snapshot = await queryRef.get();
 
-        // 1. Operação em Tempo Real (Em Aberto)
         let filaChat = 0;
         let emAtendimentoChat = 0;
         let ticketsAbertos = 0;
         let ticketsEmAndamento = 0;
 
-        // 2. Indicadores de Chat Síncrono
         let totalChats = 0;
         let encerradosChat = 0;
         let resolvidosChat = 0;
@@ -654,7 +811,6 @@ router.get('/admin/metrics', async (req, res) => {
         let somaNpsChat = 0, qtdNpsChat = 0;
         let somaDuracaoSegundosChat = 0, qtdDuracaoChat = 0;
 
-        // 3. Indicadores de Tickets
         let totalTickets = 0;
         let ticketsConcluidos = 0;
 
@@ -666,7 +822,6 @@ router.get('/admin/metrics', async (req, res) => {
             const data = doc.data();
             const ehTicket = data.status === 'Ticket' || data.tipoAtendimento === 'ticket' || Boolean(data.subStatusTicket);
 
-            // --- CONTAGEM OPERACIONAL EM TEMPO REAL ---
             if (data.status === 'Aguardando') filaChat++;
             else if (data.status === 'Em Atendimento') emAtendimentoChat++;
             else if (data.status === 'Ticket') {
@@ -674,7 +829,6 @@ router.get('/admin/metrics', async (req, res) => {
                 else ticketsEmAndamento++;
             }
 
-            // --- PROCESSAMENTO DISCRIMINADO ---
             if (ehTicket) {
                 totalTickets++;
                 if (data.status === 'Encerrado') {
@@ -693,7 +847,6 @@ router.get('/admin/metrics', async (req, res) => {
                         }
                     }
 
-                    // TMA exclusivo para Chat Síncrono
                     if (data.criadoEm && data.encerradoEm) {
                         const dtInicio = data.criadoEm.toDate ? data.criadoEm.toDate().getTime() : new Date(data.criadoEm).getTime();
                         const dtFim = data.encerradoEm.toDate ? data.encerradoEm.toDate().getTime() : new Date(data.encerradoEm).getTime();
@@ -704,18 +857,15 @@ router.get('/admin/metrics', async (req, res) => {
                     }
                 }
 
-                // NPS exclusivo de Chat Síncrono
                 if (data.nps && typeof data.nps.nota === 'number') {
                     somaNpsChat += data.nps.nota;
                     qtdNpsChat++;
                 }
             }
 
-            // Assuntos gerais
             const assunto = data.origem || 'Geral';
             assuntoMap[assunto] = (assuntoMap[assunto] || 0) + 1;
 
-            // Performance por Operador
             if (data.atendente) {
                 if (!opMap[data.atendente]) {
                     opMap[data.atendente] = { atendimentos: 0, encerrados: 0, somaNps: 0, qtdNps: 0 };
@@ -778,7 +928,6 @@ router.get('/admin/metrics', async (req, res) => {
     }
 });
 
-// Cadastrar / Editar Colaborador com Múltiplos Assuntos
 router.post('/admin/operadores/salvar', async (req, res) => {
     try {
         const { email, nome, funcao, assuntos } = req.body;
@@ -802,7 +951,6 @@ router.post('/admin/operadores/salvar', async (req, res) => {
     }
 });
 
-// Excluir Colaborador
 router.delete('/admin/operadores', async (req, res) => {
     try {
         const { email } = req.query;
@@ -816,7 +964,6 @@ router.delete('/admin/operadores', async (req, res) => {
     }
 });
 
-// Salvar Lista de Assuntos do Widget
 router.post('/admin/assuntos/salvar', async (req, res) => {
     try {
         const { lista } = req.body;
@@ -834,7 +981,6 @@ router.post('/admin/assuntos/salvar', async (req, res) => {
     }
 });
 
-// Obter e Salvar Motivos de Não-Resolução para Tabulação
 router.get('/admin/motivos', async (req, res) => {
     try {
         const doc = await db.collection('configuracoes').doc('motivos').get();

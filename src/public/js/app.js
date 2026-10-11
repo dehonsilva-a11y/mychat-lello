@@ -6,7 +6,7 @@ let notaSelecionada = 5;
 // Variável para evitar o loop de repetição no ecrã do cliente
 let ultimasMensagensClienteCount = 0; 
 
-// Captura Parâmetros de Contexto passados pela URL (via widget.js / teste.html / HubSpot)
+// Captura Parâmetros de Contexto passados pela URL (via widget.js / teste.html / HubSpot / E-mail)
 const urlParams = new URLSearchParams(window.location.search);
 const ctxNome = urlParams.get('nome') || '';
 const ctxEmail = urlParams.get('email') || '';
@@ -19,22 +19,38 @@ const ctxVerificado = urlParams.get('verificado') === 'true';
 document.addEventListener('DOMContentLoaded', () => {
     carregarAssuntosTriagem();
 
-    // Preenche campos de triagem caso venham na URL
-    const nomeInput = document.getElementById('triagem-nome');
-    const emailInput = document.getElementById('triagem-email');
+    // Captura parâmetro chatId vindo do e-mail de notificação
+    const urlChatId = urlParams.get('chatId');
 
-    if (nomeInput && ctxNome) nomeInput.value = ctxNome;
-    if (emailInput && ctxEmail) emailInput.value = ctxEmail;
+    if (urlChatId) {
+        idClienteAtual = urlChatId;
+        const formTriagem = document.getElementById('form-triagem');
+        const footerIniciar = document.getElementById('footer-iniciar');
+        const footerInput = document.getElementById('footer-input');
 
-    // Se o cliente for verificado (com e-mail informado), oculta a coleta de nome e e-mail
-    if (ctxVerificado && ctxEmail) {
-        const boxNome = document.getElementById('box-triagem-nome');
-        const boxEmail = document.getElementById('box-triagem-email');
-        if (boxNome) boxNome.style.display = 'none';
-        if (boxEmail) boxEmail.style.display = 'none';
-        
-        const tituloTriagem = document.getElementById('titulo-triagem');
-        if (tituloTriagem) tituloTriagem.innerText = 'Selecione o assunto do atendimento';
+        if (formTriagem) formTriagem.style.display = 'none';
+        if (footerIniciar) footerIniciar.style.display = 'none';
+        if (footerInput) footerInput.style.display = 'flex';
+
+        carregarRespostasServidor();
+    } else {
+        // Preenche campos de triagem caso venham na URL
+        const nomeInput = document.getElementById('triagem-nome');
+        const emailInput = document.getElementById('triagem-email');
+
+        if (nomeInput && ctxNome) nomeInput.value = ctxNome;
+        if (emailInput && ctxEmail) emailInput.value = ctxEmail;
+
+        // Se o cliente for verificado (com e-mail informado), oculta a coleta de nome e e-mail
+        if (ctxVerificado && ctxEmail) {
+            const boxNome = document.getElementById('box-triagem-nome');
+            const boxEmail = document.getElementById('box-triagem-email');
+            if (boxNome) boxNome.style.display = 'none';
+            if (boxEmail) boxEmail.style.display = 'none';
+            
+            const tituloTriagem = document.getElementById('titulo-triagem');
+            if (tituloTriagem) tituloTriagem.innerText = 'Selecione o assunto do atendimento';
+        }
     }
 });
 
@@ -93,7 +109,7 @@ async function iniciarAtendimentoComTriagem() {
     document.getElementById('footer-iniciar').style.display = 'none';
     document.getElementById('footer-input').style.display = 'flex';
 
-    ultimasMensagensClienteCount = 0; // Zera o contador de mensagens no início do chat
+    ultimasMensagensClienteCount = 0;
 
     adicionarMensagemSistema('Solicitando atendimento...');
 
@@ -216,8 +232,8 @@ async function carregarRespostasServidor() {
         if (dados.status === 'Ticket') {
             if (!widgetHeaderInfo) {
                 const header = document.querySelector('.chat-header');
-                const titleSpan = header.querySelector('span');
-                titleSpan.style.display = 'none';
+                const titleSpan = header ? header.querySelector('span') : null;
+                if (titleSpan) titleSpan.style.display = 'none';
 
                 const infoDiv = document.createElement('div');
                 infoDiv.id = 'widget-header-info';
@@ -225,13 +241,17 @@ async function carregarRespostasServidor() {
                 infoDiv.innerHTML = `
                     <span class="badge-ticket-widget">🎫 TICKET: ${dados.subStatusTicket || 'Aberto'}</span>
                 `;
-                header.appendChild(infoDiv);
+                if (header) header.appendChild(infoDiv);
             } else {
                 widgetHeaderInfo.innerHTML = `<span class="badge-ticket-widget">🎫 TICKET: ${dados.subStatusTicket || 'Aberto'}</span>`;
             }
+        } else if (dados.status === 'Encerrado' || dados.status === 'encerrado') {
+            if (widgetHeaderInfo) {
+                widgetHeaderInfo.innerHTML = `<span class="badge-ticket-widget" style="background: #f1f5f9; color: #64748b; border-color: #cbd5e1;">✅ ENCERRADO</span>`;
+            }
         }
 
-        // Se houver mensagens e a quantidade for DIFERENTE da que já temos renderizada, nós redesenhamos o ecrã
+        // Se houver mensagens e a quantidade for DIFERENTE da que já temos renderizada
         if (dados.mensagens && dados.mensagens.length !== ultimasMensagensClienteCount) {
             
             // Preserva avisos de sistema iniciais (Fila, Posição)
@@ -248,7 +268,7 @@ async function carregarRespostasServidor() {
                 } else if (msg.de === 'atendente') {
                     div.className = 'msg-atendente';
                 } else {
-                    div.className = 'msg-sistema'; // Mensagens do protocolo, nps, transferências
+                    div.className = 'msg-sistema';
                 }
 
                 if (msg.de === 'sistema') {
@@ -278,7 +298,6 @@ async function carregarRespostasServidor() {
                 chatBody.appendChild(div);
             });
 
-            // Atualiza o contador de controlo e faz scroll para baixo
             ultimasMensagensClienteCount = dados.mensagens.length;
             chatBody.scrollTop = chatBody.scrollHeight;
         }
@@ -287,11 +306,33 @@ async function carregarRespostasServidor() {
         if ((dados.status === 'Encerrado' || dados.status === 'encerrado') && !npsExibido) {
             if (intervalPolling) clearInterval(intervalPolling);
             npsExibido = true;
-            exibirFormularioNPS();
+            
+            if (dados.nps && dados.nps.nota) {
+                // Já foi avaliado anteriormente
+                exibirAvisoEncerrado();
+            } else {
+                exibirFormularioNPS();
+            }
         }
     } catch (erro) {
         console.error("❌ ERRO NO WIDGET:", erro); 
     }
+}
+
+function exibirAvisoEncerrado() {
+    const footerInput = document.getElementById('footer-input');
+    if (!footerInput) return;
+
+    footerInput.style.display = 'flex';
+    footerInput.style.flexDirection = 'column';
+    footerInput.style.padding = '12px';
+
+    footerInput.innerHTML = `
+        <div style="font-size: 12px; color: #64748b; text-align: center; width: 100%; padding: 8px; font-weight: bold; display: flex; flex-direction: column; gap: 8px;">
+            <span>✅ Este chamado/ticket foi concluído e encerrado.</span>
+            <button onclick="reiniciarAtendimento()" style="background: #A00028; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;">🔄 Iniciar Novo Atendimento</button>
+        </div>
+    `;
 }
 
 function exibirFormularioNPS() {
@@ -347,15 +388,7 @@ async function enviarAvaliacaoNPS() {
             })
         });
 
-        const footerInput = document.getElementById('footer-input');
-        if (footerInput) {
-            footerInput.innerHTML = `
-                <div style="font-size: 12px; color: #15803d; text-align: center; width: 100%; padding: 8px; font-weight: bold; display: flex; flex-direction: column; gap: 8px;">
-                    <span>✅ Obrigado pela sua avaliação! Atendimento encerrado.</span>
-                    <button onclick="reiniciarAtendimento()" style="background: #A00028; color: white; border: none; padding: 8px; border-radius: 6px; font-weight: bold; cursor: pointer;">🔄 Iniciar Novo Atendimento</button>
-                </div>
-            `;
-        }
+        exibirAvisoEncerrado();
     } catch (erro) {
         console.error('Erro ao enviar NPS:', erro);
     }
@@ -364,9 +397,8 @@ async function enviarAvaliacaoNPS() {
 function reiniciarAtendimento() {
     idClienteAtual = null;
     npsExibido = false;
-    ultimasMensagensClienteCount = 0; // Reset na variável do ciclo
+    ultimasMensagensClienteCount = 0;
 
-    // Restaura o cabeçalho original se for Ticket
     const widgetHeaderInfo = document.getElementById('widget-header-info');
     if (widgetHeaderInfo) widgetHeaderInfo.remove();
     const header = document.querySelector('.chat-header');
@@ -375,7 +407,6 @@ function reiniciarAtendimento() {
         if (titleSpan) titleSpan.style.display = 'inline-block';
     }
 
-    // Limpa mensagens do chat e restaura o formulário de triagem
     const chatBody = document.getElementById('chat-messages');
     if (chatBody) {
         chatBody.innerHTML = `
@@ -402,7 +433,6 @@ function reiniciarAtendimento() {
         `;
     }
 
-    // Restaura o estado e layout dos rodapés
     const footerInput = document.getElementById('footer-input');
     const footerIniciar = document.getElementById('footer-iniciar');
 
@@ -423,10 +453,8 @@ function reiniciarAtendimento() {
     }
     if (footerIniciar) footerIniciar.style.display = 'flex';
 
-    // Recarrega os assuntos na triagem
     carregarAssuntosTriagem();
 
-    // Reativa o polling do servidor
     if (intervalPolling) clearInterval(intervalPolling);
     intervalPolling = setInterval(carregarRespostasServidor, 1500);
 }
