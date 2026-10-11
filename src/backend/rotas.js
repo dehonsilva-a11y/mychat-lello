@@ -11,27 +11,41 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Configuração do Transporter de E-mail (Nodemailer / SMTP)
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587,
-    secure: false,
-    auth: {
-        user: process.env.SMTP_USER || 'seu-email-suporte@lello.com.br',
-        pass: process.env.SMTP_PASS || 'sua-senha-ou-token-app'
-    }
-});
-
-// Helper de Envio de E-mail Transacional
+// Helper de Envio de E-mail Transacional (Instanciação Dinâmica e Limpeza de Espaços)
 async function enviarEmailNotificacao({ para, assunto, html }) {
     if (!para || para === 'Não informado' || !para.includes('@')) return;
+
+    // Obtém as variáveis em tempo real e limpa espaços acidentais (.trim())
+    const usuarioSmtp = (process.env.SMTP_USER || 'dehonsilva2@gmail.com').trim();
+    const senhaSmtp = (process.env.SMTP_PASS || '').trim();
+    const hostSmtp = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+    const portaSmtp = Number(process.env.SMTP_PORT) || 587;
+
+    if (!senhaSmtp) {
+        console.error('❌ [ERRO ENVIO E-MAIL]: A variável SMTP_PASS não foi encontrada no ambiente.');
+        return;
+    }
+
+    console.log(`📧 [DIAGNÓSTICO SMTP] A tentar disparar e-mail via: ${usuarioSmtp}`);
+
+    const transporter = nodemailer.createTransport({
+        host: hostSmtp,
+        port: portaSmtp,
+        secure: false,
+        auth: {
+            user: usuarioSmtp,
+            pass: senhaSmtp
+        }
+    });
+
     try {
-        await transporter.sendMail({
-            from: '"Mychat Lello" <' + (process.env.SMTP_USER || 'suporte@lello.com.br') + '>',
+        const info = await transporter.sendMail({
+            from: `"Mychat Lello" <${usuarioSmtp}>`,
             to: para,
             subject: assunto,
             html: html
         });
+        console.log('✅ [E-MAIL ENVIADO COM SUCESSO]:', para, '| MessageID:', info.messageId);
     } catch (erro) {
         console.error('❌ [ERRO ENVIO E-MAIL]:', erro.message);
     }
@@ -588,7 +602,7 @@ router.post('/atendimento/converter-ticket', async (req, res) => {
                 motivoTicket: motivoTicket || 'Análise Adicional',
                 mensagens: admin.firestore.FieldValue.arrayUnion({
                     de: 'sistema',
-                    texto: `🎫 Este atendimento foi converted num Ticket de Acompanhamento (Protocolo: ${dataAtual.protocolo}).<br><b>Motivo:</b> ${motivoTicket || 'Análise Adicional'}<br><b>Previsão de Retorno:</b> ${previsaoResposta || '24h'}.<br>O operador ${atendente || 'responsável'} continuará o acompanhamento por aqui.`
+                    texto: `🎫 Este atendimento foi convertido num Ticket de Acompanhamento (Protocolo: ${dataAtual.protocolo}).<br><b>Motivo:</b> ${motivoTicket || 'Análise Adicional'}<br><b>Previsão de Retorno:</b> ${previsaoResposta || '24h'}.<br>O operador ${atendente || 'responsável'} continuará o acompanhamento por aqui.`
                 })
             });
 
@@ -784,7 +798,7 @@ router.get('/atendimento/respostas-rapidas', (req, res) => {
     res.json({ respostas });
 });
 
-// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN (GESTÃO & METRICAS DISCRIMINADAS) ---
+// --- ROTAS EXCLUSIVAS DO PAINEL ADMIN ---
 
 router.get('/admin/metrics', async (req, res) => {
     try {
