@@ -11,7 +11,7 @@ const upload = multer({
     limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// Helper de Envio de E-mail Transacional (Instanciação Dinâmica e Limpeza de Espaços)
+// Helper de Envio de E-mail Transacional (Instanciação Dinâmica e Suporte SSL Porta 465/587)
 async function enviarEmailNotificacao({ para, assunto, html }) {
     if (!para || para === 'Não informado' || !para.includes('@')) return;
 
@@ -19,19 +19,19 @@ async function enviarEmailNotificacao({ para, assunto, html }) {
     const usuarioSmtp = (process.env.SMTP_USER || 'dehonsilva2@gmail.com').trim();
     const senhaSmtp = (process.env.SMTP_PASS || '').trim();
     const hostSmtp = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-    const portaSmtp = Number(process.env.SMTP_PORT) || 587;
+    const portaSmtp = Number(process.env.SMTP_PORT) || 465;
 
     if (!senhaSmtp) {
         console.error('❌ [ERRO ENVIO E-MAIL]: A variável SMTP_PASS não foi encontrada no ambiente.');
         return;
     }
 
-    console.log(`📧 [DIAGNÓSTICO SMTP] A tentar disparar e-mail via: ${usuarioSmtp}`);
+    console.log(`📧 [DIAGNÓSTICO SMTP] A tentar disparar e-mail via: ${usuarioSmtp} (Porta: ${portaSmtp})`);
 
     const transporter = nodemailer.createTransport({
         host: hostSmtp,
         port: portaSmtp,
-        secure: false,
+        secure: portaSmtp === 465, // true para porta 465 (SSL direto), false para 587 (STARTTLS)
         auth: {
             user: usuarioSmtp,
             pass: senhaSmtp
