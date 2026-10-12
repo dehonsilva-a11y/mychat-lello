@@ -14,7 +14,7 @@
     // Captura o objeto mychat existente e processa chamadas em fila
     const mychatStub = window.mychat;
 
-    // Redefine window.mychat para chamadas diretas futuras
+    // Redefine window.mychat para chamadas diretas futuras (padrão assíncrono)
     window.mychat = function(acao, opcoes) {
         executarComando(acao, opcoes);
     };
@@ -23,6 +23,28 @@
     if (mychatStub && Array.isArray(mychatStub.q)) {
         mychatStub.q.forEach(args => executarComando(args[0], args[1]));
     }
+
+    // ==========================================
+    // 🌐 NOVA API PÚBLICA DO WIDGET
+    // ==========================================
+    window.Mychat = {
+        abrir: function() {
+            const container = document.getElementById('mychat-widget-container');
+            if (container) {
+                container.style.display = 'block';
+            } else {
+                console.warn('Mychat: O Widget ainda não foi inicializado.');
+            }
+        },
+        fechar: function() {
+            const container = document.getElementById('mychat-widget-container');
+            if (container) container.style.display = 'none';
+        },
+        alternar: function() {
+            toggleWidget();
+        }
+    };
+    // ==========================================
 
     function capturarContextoOrigem() {
         return {
@@ -83,10 +105,8 @@
 
     function toggleWidget() {
         const container = document.getElementById('mychat-widget-container');
-        if (container.style.display === 'block') {
-            container.style.display = 'none';
-        } else {
-            container.style.display = 'block';
+        if (container) {
+            container.style.display = (container.style.display === 'block') ? 'none' : 'block';
         }
     }
 })();

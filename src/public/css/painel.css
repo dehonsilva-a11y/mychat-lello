@@ -211,6 +211,7 @@ body {
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    position: relative;
 }
 
 .card-chat:hover {
@@ -233,6 +234,38 @@ body {
 .card-chat.ticket-card:hover {
     border-color: #7c3aed;
     box-shadow: 0 4px 12px rgba(124, 58, 237, 0.12);
+}
+
+/* 🚨 DESTAQUE VISUAL PARA CONVERSAS PENDENTES DE RESPOSTA */
+.card-chat.pendente-resposta {
+    border-left: 4px solid #ef4444 !important;
+    background: #fff5f5;
+    animation: pulsoAlerta 2.5s infinite;
+}
+
+.badge-pendente-resposta {
+    font-size: 10px;
+    font-weight: bold;
+    background: #fee2e2;
+    color: #dc2626;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid #fca5a5;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+@keyframes pulsoAlerta {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }
 
 .card-chat .header-card {

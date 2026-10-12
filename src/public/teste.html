@@ -7,16 +7,36 @@
     <style>
         body { font-family: sans-serif; padding: 40px; background: #f8fafc; }
         .card { background: white; padding: 24px; border-radius: 8px; max-width: 600px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .btn-abrir-chat {
+            display: inline-block;
+            margin-top: 20px;
+            background: #A00028;
+            color: #ffffff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-abrir-chat:hover { background: #800020; }
+        .btn-abrir-chat:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>Página de Teste - Mychat</h1>
         <p>Esta página simula o ambiente do morador logado no site/portal.</p>
-        <p>O botão flutuante deve aparecer no canto inferior direito.</p>
+        <p>O botão flutuante padrão aparecerá no canto inferior direito.</p>
+        
+        <!-- Novo botão consumindo a API pública do Widget -->
+        <button class="btn-abrir-chat" onclick="window.Mychat.abrir()">
+            💬 Clique aqui para falar com um Atendente
+        </button>
     </div>
 
-    <!-- Script de Teste do Widget -->
+    <!-- Script de Inicialização do Widget -->
     <script>
       (function(w, d, s, o, f, js, fjs) {
         w['MychatObject'] = o;

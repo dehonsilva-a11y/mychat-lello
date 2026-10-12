@@ -8,6 +8,29 @@ let tabulacaoResolvido = null;
 let listaAssuntosCache = [];
 let modoFiltroFila = 'minhas'; 
 
+// ==========================================
+// 🔔 GESTÃO DE ÁUDIO DE NOTIFICAÇÃO
+// ==========================================
+const somNotificacao = new Audio((window.prefixoApp || '') + '/assets/notification.mp3');
+let somHabilitado = false;
+
+// O navegador bloqueia sons até que o usuário interaja com a página
+document.body.addEventListener('click', () => {
+    if (!somHabilitado) {
+        somHabilitado = true;
+        // Carrega o áudio silenciosamente para liberar o uso futuro
+        somNotificacao.load(); 
+    }
+}, { once: true });
+
+function emitirBeepSonoro() {
+    if (!somHabilitado) return;
+    somNotificacao.currentTime = 0;
+    somNotificacao.play().catch(e => console.warn('Autoplay do áudio bloqueado pelo navegador.', e));
+}
+// ==========================================
+
+
 // PROTEÇÃO DE ROTA & CAPTURA DO PERFIL DO OPERADOR VIA BACKEND
 auth.onAuthStateChanged(async user => {
     if (!user) {
@@ -260,25 +283,9 @@ async function confirmarTransferencia() {
     }
 }
 
-function emitirBeepSonoro() {
-    try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-        osc.stop(ctx.currentTime + 0.2);
-    } catch (e) {}
-}
+// ==========================================
+// MÓDULO DE LISTAGEM DE ATENDIMENTOS E IDENTIFICAÇÃO DE RESPOSTAS
+// ==========================================
 
 async function carregarListaAtendimentos() {
     const prefixo = window.prefixoApp || '';
@@ -290,6 +297,7 @@ async function carregarListaAtendimentos() {
         const fila = dados.fila || [];
         const ativos = dados.emAtendimento || [];
 
+        // Verifica novas entradas na Fila e toca o Som
         if (fila.length > quantidadeFilaAnterior) {
             emitirBeepSonoro();
         }
@@ -318,6 +326,18 @@ async function carregarMeusTickets() {
     }
 }
 
+function verificarStatusResposta(mensagens) {
+    if (!mensagens || mensagens.length === 0) return false;
+    
+    // Ignora mensagens do sistema e verifica apenas a troca cliente vs atendente
+    const msgValidas = mensagens.filter(m => m.de === 'cliente' || m.de === 'atendente');
+    if (msgValidas.length === 0) return false;
+
+    // Se a última mensagem válida foi do cliente, consideramos como "Pendente de Resposta"
+    const ultimaMensagem = msgValidas[msgValidas.length - 1];
+    return ultimaMensagem.de === 'cliente';
+}
+
 function renderizarFila(fila) {
     const container = document.getElementById('lista-fila');
     const countElement = document.getElementById('count-fila');
@@ -344,11 +364,16 @@ function renderizarFila(fila) {
     }
 
     filaExibida.forEach(chat => {
+        // Na fila é normal que todas aguardem resposta, então sempre destacamos com o alerta
+        const classAlerta = 'pendente-resposta';
+        const badgeAlerta = `<span class="badge-pendente-resposta">🚨 Novo!</span>`;
+
         const div = document.createElement('div');
-        div.className = 'card-chat';
+        div.className = `card-chat ${classAlerta}`;
         div.innerHTML = `
             <div class="header-card">
                 <strong>${chat.nome}</strong>
+                ${badgeAlerta}
             </div>
             <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">Assunto: ${chat.origem || 'Geral'}</div>
             <div style="font-size: 10px; color: #94a3b8; font-family: monospace; margin-bottom: 6px;">Prot: ${chat.protocolo || '-'}</div>
@@ -387,13 +412,22 @@ function renderizarAtivos(ativos) {
     }
 
     meusAtendimentos.forEach(chat => {
+        // Verifica se a última mensagem foi enviada pelo cliente e gera o alerta
+        const aguardandoResposta = verificarStatusResposta(chat.mensagens);
+        const classAlerta = aguardandoResposta ? 'pendente-resposta' : '';
+        const badgeOrigem = `<span class="badge-origem">${chat.origem || 'Geral'}</span>`;
+        const badgeAlerta = aguardandoResposta ? `<span class="badge-pendente-resposta">🚨 Responder</span>` : '';
+
         const div = document.createElement('div');
-        div.className = `card-chat ${chatSelecionadoId === chat.id ? 'ativo' : ''}`;
+        div.className = `card-chat ${chatSelecionadoId === chat.id ? 'ativo' : ''} ${classAlerta}`;
         div.onclick = () => selecionarChat(chat);
         div.innerHTML = `
             <div class="header-card">
-                <strong>${chat.nome}</strong>
-                <span class="badge-origem">${chat.origem || 'Geral'}</span>
+                <strong style="max-width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${chat.nome}</strong>
+                <div style="display: flex; gap: 4px;">
+                    ${badgeAlerta}
+                    ${aguardandoResposta ? '' : badgeOrigem}
+                </div>
             </div>
             <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">Prot: ${chat.protocolo || '-'}</div>
         `;
@@ -419,13 +453,18 @@ function renderizarTickets(tickets) {
         const statusTicket = chat.subStatusTicket || 'Aberto';
         const colorClass = statusTicket === 'Aberto' ? 'aberto' : (statusTicket === 'Resolvido' ? 'resolvido' : 'andamento');
         
+        // Verifica se o morador respondeu o ticket
+        const aguardandoResposta = verificarStatusResposta(chat.mensagens);
+        const classAlerta = aguardandoResposta ? 'pendente-resposta' : '';
+        const badgeAlerta = aguardandoResposta ? `<span class="badge-pendente-resposta">🚨 Resposta do Cliente</span>` : '';
+
         const div = document.createElement('div');
-        div.className = `card-chat ticket-card ${chatSelecionadoId === chat.id ? 'ativo' : ''}`;
+        div.className = `card-chat ticket-card ${chatSelecionadoId === chat.id ? 'ativo' : ''} ${classAlerta}`;
         div.onclick = () => selecionarChat(chat);
         div.innerHTML = `
             <div class="header-card">
                 <strong>${chat.nome}</strong>
-                <span class="badge-substatus ${colorClass}">${statusTicket}</span>
+                ${badgeAlerta || `<span class="badge-substatus ${colorClass}">${statusTicket}</span>`}
             </div>
             <div style="font-size: 11px; color: #64748b; margin-bottom: 2px;">🎫 ${chat.motivoTicket || 'Acompanhamento'}</div>
             <div style="font-size: 10px; color: #94a3b8; font-family: monospace;">Prot: ${chat.protocolo || '-'}</div>
@@ -582,6 +621,7 @@ async function carregarMensagensChatAtivo() {
             if (badgeNps) badgeNps.style.display = 'none';
         }
 
+        // Toca o Som se a nova mensagem for do Cliente e o chat estiver focado
         if (mensagens.length > ultimasMensagensCount) {
             const ultimaMsg = mensagens[mensagens.length - 1];
             if (ultimaMsg && ultimaMsg.de === 'cliente' && ultimasMensagensCount > 0) {
@@ -639,6 +679,10 @@ async function enviarRespostaOperador() {
         }
 
         carregarMensagensChatAtivo();
+        
+        // Remove a marcação de alerta das listas forçando um recarregamento silencioso
+        setTimeout(carregarListaAtendimentos, 500);
+
     } catch (erro) {
         console.error('Erro ao responder:', erro);
     }
@@ -703,6 +747,7 @@ async function enviarAnexoOperador(event) {
                 carregarMeusTickets();
             }
             carregarMensagensChatAtivo();
+            setTimeout(carregarListaAtendimentos, 500);
         } else {
             alert('Erro ao enviar o anexo: ' + (dadosUpload.erro || 'Desconhecido'));
             const el = document.getElementById('loading-anexo');
@@ -717,7 +762,7 @@ async function enviarAnexoOperador(event) {
 }
 
 // ==========================================
-// MÓDULO DE TICKETS
+// MÓDULO DE TICKETS E TABULAÇÕES CONTINUA...
 // ==========================================
 function abrirModalConverterTicket() {
     if (!chatSelecionadoId) return;
