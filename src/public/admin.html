@@ -32,6 +32,7 @@
             <button class="tab-btn active" onclick="alternarAba('dashboard')">📊 Dashboard / Métricas</button>
             <button class="tab-btn" onclick="alternarAba('espiao')">🕵️‍♂️ Modo Espião / Chats & Tickets</button>
             <button class="tab-btn" onclick="alternarAba('colaboradores')">👥 Colaboradores</button>
+            <button class="tab-btn" onclick="alternarAba('hubspot')">⚙️ Integração HubSpot</button>
             <button class="tab-btn" onclick="alternarAba('respostas')">⚡ Respostas Rápidas</button>
             <button class="tab-btn" onclick="alternarAba('assuntos')">🏷️ Assuntos da Triagem</button>
             <button class="tab-btn" onclick="alternarAba('motivos')">📋 Motivos de Tabulação</button>
@@ -303,6 +304,81 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <!-- ABA INTEGRAÇÃO HUBSPOT -->
+            <section id="aba-hubspot" class="aba-conteudo" style="display: none;">
+                <div class="secao-header">
+                    <div>
+                        <h3>Integração CRM HubSpot (Mapeamento Dinâmico)</h3>
+                        <p>Configure as chaves e defina quais dados do Mychat serão enviados para propriedades específicas do Ticket no HubSpot.</p>
+                    </div>
+                    <button class="btn-novo" style="background: #ff7a59;" onclick="window.open('https://app.hubspot.com/', '_blank')">Abrir HubSpot</button>
+                </div>
+
+                <div class="card-config-hubspot">
+                    <h3 class="hubspot-secao-titulo">🔑 Autenticação e Configurações de Funil</h3>
+                    <div class="hubspot-grid">
+                        <div class="campo-admin" style="margin-bottom: 0;">
+                            <label>Token de Acesso (App Privado) *</label>
+                            <input type="password" id="hs-token" placeholder="pat-na1-...">
+                        </div>
+                        <div class="campo-admin" style="margin-bottom: 0;">
+                            <label>ID do Pipeline (Funil) *</label>
+                            <input type="text" id="hs-pipeline" placeholder="Ex: 0 ou default">
+                        </div>
+                    </div>
+                    
+                    <div class="hubspot-grid">
+                        <div class="campo-admin" style="margin-bottom: 0;">
+                            <label>ID Etapa: Novo Chat *</label>
+                            <input type="text" id="hs-stage-new" placeholder="Ex: 1">
+                        </div>
+                        <div class="campo-admin" style="margin-bottom: 0;">
+                            <label>ID Etapa: Ticket Aberto (Assíncrono) *</label>
+                            <input type="text" id="hs-stage-ticket" placeholder="Ex: 2">
+                        </div>
+                        <div class="campo-admin" style="margin-bottom: 0;">
+                            <label>ID Etapa: Resolvido/Concluído *</label>
+                            <input type="text" id="hs-stage-resolved" placeholder="Ex: closed">
+                        </div>
+                    </div>
+
+                    <h3 class="hubspot-secao-titulo" style="margin-top: 30px;">
+                        📝 Construtor Dinâmico de Propriedades (Tickets)
+                    </h3>
+                    
+                    <div class="box-variaveis-dica">
+                        <h4>Variáveis Dinâmicas Disponíveis:</h4>
+                        <div class="tags-variaveis-wrapper">
+                            <span class="tag-variavel">{nome}</span>
+                            <span class="tag-variavel">{nomeLimpo}</span>
+                            <span class="tag-variavel">{email}</span>
+                            <span class="tag-variavel">{telefone}</span>
+                            <span class="tag-variavel">{protocolo}</span>
+                            <span class="tag-variavel">{assunto}</span>
+                            <span class="tag-variavel">{contrato}</span>
+                            <span class="tag-variavel">{imovel}</span>
+                            <span class="tag-variavel">{origemUrl}</span>
+                            <span class="tag-variavel">{chatId}</span>
+                        </div>
+                        <p style="font-size: 11px; margin-top: 8px; color: #166534;">Use as chaves acima dentro do campo "Valor" para o sistema preencher automaticamente com os dados do cliente em tempo real.</p>
+                    </div>
+
+                    <div id="tabela-mapeamento-hubspot" class="tabela-mapeamento-wrapper">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <button class="btn-add-prop" onclick="adicionarLinhaMapeamento()">
+                            <span>+ Adicionar Propriedade do HubSpot</span>
+                        </button>
+                        
+                        <button class="btn-salvar-hubspot" onclick="salvarConfigHubspot(event)">
+                            💾 Salvar Configurações no Firebase
+                        </button>
+                    </div>
                 </div>
             </section>
 

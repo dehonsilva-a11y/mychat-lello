@@ -5,6 +5,186 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { admin, db, bucket } = require('./firebase');
 
+// ==========================================
+// 🛠️ MOTOR DE INTEGRAÇÃO HUBSPOT (CRM & TICKETS)
+// ==========================================
+
+async function obterConfigHubspot() {
+    try {
+        const doc = await db.collection('configuracoes').doc('hubspot').get();
+        if (doc.exists && doc.data().token) return doc.data();
+        return null;
+    } catch (error) {
+        return null;
+    }
+}
+
+async function sincronizarContatoHubspot(token, chatData) {
+    const headers = { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+    const emailLimpo = chatData.email && chatData.email !== 'Não informado' ? chatData.email : null;
+    const telefoneLimpo = chatData.telefone && chatData.telefone !== 'Não informado' ? chatData.telefone.replace(/\D/g, '') : null;
+    const nomeLimpo = chatData.nome.replace(/\[.*?\]/g, '').trim();
+
+    try {
+        if (emailLimpo) {
+            const resBuscaEmail = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/search`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: emailLimpo }] }] })
+            });
+            const dataBuscaEmail = await resBuscaEmail.json();
+            if (dataBuscaEmail.total > 0) return dataBuscaEmail.results[0].id;
+        }
+
+        if (telefoneLimpo) {
+            const resBuscaTel = await fetch(`https://api.hubapi.com/crm/v3/objects/contacts/search`, {
+                method: 'POST', headers,
+                body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'phone', operator: 'EQ', value: telefoneLimpo }] }] })
+            });
+            const dataBuscaTel = await resBuscaTel.json();
+            if (dataBuscaTel.total > 0) return dataBuscaTel.results[0].id;
+        }
+
+        const propriedadesNovoContato = {
+            firstname: nomeLimpo.split(' ')[0] || 'Cliente',
+            lastname: nomeLimpo.split(' ').slice(1).join(' ') || 'Mychat'
+        };
+        if (emailLimpo) propriedadesNovoContato.email = emailLimpo;
+        if (telefoneLimpo) propriedadesNovoContato.phone = telefoneLimpo;
+
+        const resCriar = await fetch('https://api.hubapi.com/crm/v3/objects/contacts', {
+            method: 'POST', headers,
+            body: JSON.stringify({ properties: propriedadesNovoContato })
+        });
+        const dataCriado = await resCriar.json();
+        return dataCriado.id || null;
+
+    } catch (erro) {
+        console.error('❌ [ERRO HUBSPOT - Sincronizar Contato]:', erro.message);
+        return null;
+    }
+}
+
+function aplicarVariaveisDinamicas(textoOriginal, chatData) {
+    if (!textoOriginal) return '';
+    let textoProcessado = textoOriginal;
+    
+    const mapaVariaveis = {
+        '{nome}': chatData.nome || '',
+        '{nomeLimpo}': chatData.nome ? chatData.nome.replace(/\[.*?\]/g, '').trim() : '',
+        '{email}': chatData.email || '',
+        '{telefone}': chatData.telefone || '',
+        '{protocolo}': chatData.protocolo || '',
+        '{assunto}': chatData.origem || '',
+        '{contrato}': (chatData.contexto && chatData.contexto.contrato) || '',
+        '{imovel}': (chatData.contexto && chatData.contexto.imovel) || '',
+        '{origemUrl}': (chatData.contexto && chatData.contexto.origemUrl) || '',
+        '{verificado}': chatData.verificado ? 'Sim' : 'Não',
+        '{chatId}': chatData.id || ''
+    };
+
+    for (const [chave, valor] of Object.entries(mapaVariaveis)) {
+        const regex = new RegExp(chave, 'g');
+        textoProcessado = textoProcessado.replace(regex, valor);
+    }
+    return textoProcessado;
+}
+
+async function criarTicketHubspot(chatData) {
+    const config = await obterConfigHubspot();
+    if (!config || !config.token) return null;
+
+    const headers = { 'Authorization': `Bearer ${config.token}`, 'Content-Type': 'application/json' };
+
+    try {
+        const contactId = await sincronizarContatoHubspot(config.token, chatData);
+
+        const propriedadesTicket = {
+            hs_pipeline: config.pipelineId,
+            hs_pipeline_stage: config.stageNew
+        };
+
+        if (config.mapeamentoTicket && Array.isArray(config.mapeamentoTicket) && config.mapeamentoTicket.length > 0) {
+            config.mapeamentoTicket.forEach(item => {
+                if (item.chave && item.valor) {
+                    propriedadesTicket[item.chave.trim()] = aplicarVariaveisDinamicas(item.valor, chatData);
+                }
+            });
+        } else {
+            propriedadesTicket.subject = `[Mychat] ${chatData.origem} - ${chatData.nome.replace(/\[.*?\]/g, '').trim()}`;
+            propriedadesTicket.content = `Protocolo: ${chatData.protocolo}\nE-mail: ${chatData.email}\nTelefone: ${chatData.telefone}`;
+        }
+
+        const corpoRequisicao = { properties: propriedadesTicket };
+
+        if (contactId) {
+            corpoRequisicao.associations = [
+                {
+                    to: { id: contactId },
+                    types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 16 }]
+                }
+            ];
+        }
+
+        const response = await fetch('https://api.hubapi.com/crm/v3/objects/tickets', {
+            method: 'POST', headers, body: JSON.stringify(corpoRequisicao)
+        });
+        
+        const data = await response.json();
+        return data.id; 
+    } catch (erro) {
+        console.error('❌ [ERRO HUBSPOT - Criar Ticket Dinâmico]:', erro.message);
+        return null;
+    }
+}
+
+async function adicionarNotaHubspot(hubspotTicketId, mensagem, remetente) {
+    if (!hubspotTicketId) return;
+    const config = await obterConfigHubspot();
+    if (!config || !config.token) return;
+
+    try {
+        await fetch('https://api.hubapi.com/crm/v3/objects/notes', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${config.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                properties: {
+                    hs_note_body: `<b>${remetente}:</b><br>${mensagem}`,
+                    hs_timestamp: Date.now().toString()
+                },
+                associations: [
+                    { to: { id: hubspotTicketId }, types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 225 }] }
+                ]
+            })
+        });
+    } catch (erro) {
+        console.error('❌ [ERRO HUBSPOT - Adicionar Nota]:', erro.message);
+    }
+}
+
+async function atualizarFaseHubspot(hubspotTicketId, tipoFase) {
+    if (!hubspotTicketId) return;
+    const config = await obterConfigHubspot();
+    if (!config || !config.token) return;
+
+    let stageId = null;
+    if (tipoFase === 'TICKET') stageId = config.stageTicket;
+    if (tipoFase === 'RESOLVIDO') stageId = config.stageResolved;
+    if (!stageId) return;
+
+    try {
+        await fetch(`https://api.hubapi.com/crm/v3/objects/tickets/${hubspotTicketId}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${config.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ properties: { hs_pipeline_stage: stageId } })
+        });
+    } catch (erro) {
+        console.error('❌ [ERRO HUBSPOT - Atualizar Fase]:', erro.message);
+    }
+}
+
+// ==========================================
+
+
 // Configuração do Multer (Upload em memória até 10MB)
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -160,7 +340,7 @@ router.post('/iniciar', async (req, res) => {
         const doc = await chatRef.get();
 
         if (!doc.exists) {
-            await chatRef.set({
+            const novoChat = {
                 id,
                 protocolo,
                 nome: `${nome || 'Cliente'} ${rotuloModo}`,
@@ -175,12 +355,20 @@ router.post('/iniciar', async (req, res) => {
                 },
                 status: 'Aguardando',
                 atendente: null,
+                hubspotTicketId: null, // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
                 mensagens: [
                     { de: 'sistema', texto: '👋 Olá! Seja bem-vindo ao nosso atendimento.' },
                     { de: 'sistema', texto: `📋 O número do seu protocolo é: ${protocolo}` }
                 ],
                 criadoEm: admin.firestore.FieldValue.serverTimestamp()
-            });
+            };
+
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            const hsId = await criarTicketHubspot(novoChat);
+            if (hsId) novoChat.hubspotTicketId = hsId;
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
+            await chatRef.set(novoChat);
         }
 
         const snapshot = await db.collection('chats').where('status', '==', 'Aguardando').get();
@@ -237,6 +425,12 @@ router.post('/mensagem', async (req, res) => {
 
             if (doc.exists) {
                 const chatData = doc.data();
+
+                // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+                const textoNota = url ? `[ANEXO ENVIADO] ${nomeArquivo}: ${url}\n${mensagem || ''}` : mensagem;
+                adicionarNotaHubspot(chatData.hubspotTicketId, textoNota, 'Morador/Cliente');
+                // --- FIM INTEGRAÇÃO HUBSPOT ---
+
                 // Notifica o colaborador responsável quando o morador responde no Ticket
                 if (chatData.status === 'Ticket' && chatData.atendente) {
                     const opSnapshot = await db.collection('operadores').where('nome', '==', chatData.atendente).get();
@@ -314,6 +508,11 @@ router.post('/atendimento/nps', async (req, res) => {
                     texto: `⭐ Cliente avaliou o atendimento com nota ${nota}/5.` 
                 })
             });
+
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            adicionarNotaHubspot(doc.data().hubspotTicketId, `⭐ Avaliação NPS Recebida: ${nota}/5\nComentário: ${comentario || 'Nenhum comentário.'}`, 'Sistema de Avaliação');
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
             return res.json({ sucesso: true });
         }
         res.status(404).json({ sucesso: false, erro: 'Chat não encontrado' });
@@ -426,6 +625,10 @@ router.post('/atendimento/assumir', async (req, res) => {
                 })
             });
 
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            adicionarNotaHubspot(doc.data().hubspotTicketId, 'Operador iniciou o atendimento.', nomeAtendente);
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
             const conversaAtualizada = (await chatRef.get()).data();
             return res.json({ sucesso: true, conversa: conversaAtualizada });
         }
@@ -477,6 +680,11 @@ router.post('/atendimento/transferir', async (req, res) => {
                     texto: `🔄 Atendimento transferido por ${antigoAtendente || 'Operador'} para ${novoAtendente}.` 
                 })
             });
+
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            adicionarNotaHubspot(doc.data().hubspotTicketId, `🔄 Atendimento transferido por ${antigoAtendente || 'Operador'} para ${novoAtendente}.`, 'Sistema');
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
             return res.json({ sucesso: true });
         }
 
@@ -522,6 +730,11 @@ router.post('/atendimento/responder', async (req, res) => {
             await chatRef.update({
                 mensagens: admin.firestore.FieldValue.arrayUnion(objetoMensagem)
             });
+
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            const msgParaHubspot = url ? `[ANEXO ENVIADO] ${nomeArquivo}\n🔗 ${url}\n\n${mensagem || ''}` : (mensagem || 'Anexo enviado.');
+            adicionarNotaHubspot(chatData.hubspotTicketId, msgParaHubspot, nomeAtendente);
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
 
             // Se for Ticket, envia e-mail de atualização para o Morador
             if (chatData.status === 'Ticket') {
@@ -606,6 +819,11 @@ router.post('/atendimento/converter-ticket', async (req, res) => {
                 })
             });
 
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            atualizarFaseHubspot(dataAtual.hubspotTicketId, 'TICKET');
+            adicionarNotaHubspot(dataAtual.hubspotTicketId, `🎫 Convertido em Ticket.\nMotivo: ${motivoTicket || 'Análise Adicional'}\nPrevisão: ${previsaoResposta || '24h'}`, atendente || 'Sistema');
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
             // Notifica o morador da conversão por e-mail
             const hostUrl = `${req.protocol}://${req.get('host')}`;
             const linkWidget = `${hostUrl}/index.html?chatId=${idLimpo}`;
@@ -674,6 +892,11 @@ router.post('/tickets/atualizar-status', async (req, res) => {
                     texto: `✅ Ticket Concluído por ${atendente}. Motivo: ${motivoConclusao || 'Resolvido'}.`
                 });
 
+                // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+                atualizarFaseHubspot(chatData.hubspotTicketId, 'RESOLVIDO');
+                adicionarNotaHubspot(chatData.hubspotTicketId, `✅ Ticket Concluído por ${atendente}. Motivo: ${motivoConclusao || 'Resolvido'}.`, atendente);
+                // --- FIM INTEGRAÇÃO HUBSPOT ---
+
                 const hostUrl = `${req.protocol}://${req.get('host')}`;
                 const linkWidget = `${hostUrl}/index.html?chatId=${idLimpo}`;
 
@@ -707,6 +930,10 @@ router.post('/tickets/atualizar-status', async (req, res) => {
                         </div>
                     `
                 });
+            } else {
+                // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+                adicionarNotaHubspot(chatData.hubspotTicketId, `🔄 Status do Ticket alterado para ${novoStatus} por ${atendente}.`, 'Sistema');
+                // --- FIM INTEGRAÇÃO HUBSPOT ---
             }
 
             await chatRef.update(updateData);
@@ -743,6 +970,14 @@ router.post('/atendimento/encerrar', async (req, res) => {
                     texto: `Atendimento encerrado pelo operador. Tabulação: ${statusResolucao}` 
                 })
             });
+
+            // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+            if (resolvido) {
+                atualizarFaseHubspot(doc.data().hubspotTicketId, 'RESOLVIDO');
+            }
+            adicionarNotaHubspot(doc.data().hubspotTicketId, `Atendimento encerrado pelo operador. Tabulação: ${statusResolucao}`, 'Sistema');
+            // --- FIM INTEGRAÇÃO HUBSPOT ---
+
             return res.json({ sucesso: true });
         }
 
@@ -1030,5 +1265,40 @@ router.post('/admin/motivos/salvar', async (req, res) => {
         res.status(500).json({ erro: 'Erro ao salvar motivos' });
     }
 });
+
+// --- INÍCIO INTEGRAÇÃO HUBSPOT (ROTAS ADMIN) ---
+router.get('/admin/hubspot/config', async (req, res) => {
+    try {
+        const doc = await db.collection('configuracoes').doc('hubspot').get();
+        if (doc.exists) {
+            return res.json(doc.data());
+        }
+        res.json({ token: '', pipelineId: '', stageNew: '', stageTicket: '', stageResolved: '', mapeamentoTicket: [] });
+    } catch (erro) {
+        console.error('[ERRO buscar config hubspot]', erro);
+        res.status(500).json({ erro: 'Erro ao buscar configurações' });
+    }
+});
+
+router.post('/admin/hubspot/config', async (req, res) => {
+    try {
+        const dados = req.body;
+        await db.collection('configuracoes').doc('hubspot').set({
+            token: dados.token || '',
+            pipelineId: dados.pipelineId || '',
+            stageNew: dados.stageNew || '',
+            stageTicket: dados.stageTicket || '',
+            stageResolved: dados.stageResolved || '',
+            mapeamentoTicket: Array.isArray(dados.mapeamentoTicket) ? dados.mapeamentoTicket : [],
+            atualizadoEm: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        
+        res.json({ sucesso: true });
+    } catch (erro) {
+        console.error('[ERRO salvar config hubspot]', erro);
+        res.status(500).json({ erro: 'Erro ao salvar configurações' });
+    }
+});
+// --- FIM INTEGRAÇÃO HUBSPOT (ROTAS ADMIN) ---
 
 module.exports = router;

@@ -32,7 +32,7 @@ auth.onAuthStateChanged(async user => {
             nomeDisplay.innerText = perfil.nome || user.email;
         }
 
-        // Carrega os dados iniciais do painel (incluindo o novo Dashboard)
+        // Carrega os dados iniciais do painel
         inicializarPainelAdmin();
     } catch (erro) {
         console.error('Erro ao verificar permissões:', erro);
@@ -67,7 +67,8 @@ function alternarAba(abaAtiva) {
         'colaboradores': 'colab',
         'respostas': 'resp',
         'assuntos': 'assun',
-        'motivos': 'motiv'
+        'motivos': 'motiv',
+        'hubspot': 'hub' // Mapeamento da nova aba
     };
     const prefixoAba = btnIdMap[abaAtiva] || abaAtiva.substring(0, 3);
     
@@ -77,6 +78,10 @@ function alternarAba(abaAtiva) {
     // Acionamentos específicos de cada aba
     if (abaAtiva === 'dashboard') {
         carregarMetricasDashboard();
+    }
+    
+    if (abaAtiva === 'hubspot') {
+        carregarConfigHubspot();
     }
     
     if (abaAtiva === 'espiao') {
@@ -100,6 +105,7 @@ function inicializarPainelAdmin() {
     carregarRespostasRapidas();
     carregarAssuntos();
     carregarMotivos();
+    // Carrega o HubSpot só quando clica na aba para poupar processamento
 }
 
 // Preenche a Data Inicial (dia 1 do mês) e Data Final (hoje) para o Dashboard e para o Espião
@@ -128,6 +134,97 @@ function inicializarFiltroDatas() {
 }
 
 // ============================================================================
+// --- GESTÃO DE CONFIGURAÇÕES HUBSPOT ---
+// ============================================================================
+
+async function carregarConfigHubspot() {
+    const prefixo = window.prefixoApp || '';
+    try {
+        const resposta = await fetch(prefixo + '/api/admin/hubspot/config');
+        const dados = await resposta.json();
+        
+        document.getElementById('hs-token').value = dados.token || '';
+        document.getElementById('hs-pipeline').value = dados.pipelineId || '';
+        document.getElementById('hs-stage-new').value = dados.stageNew || '';
+        document.getElementById('hs-stage-ticket').value = dados.stageTicket || '';
+        document.getElementById('hs-stage-resolved').value = dados.stageResolved || '';
+
+        const containerMap = document.getElementById('tabela-mapeamento-hubspot');
+        if (containerMap) {
+            containerMap.innerHTML = '';
+            if (dados.mapeamentoTicket && dados.mapeamentoTicket.length > 0) {
+                dados.mapeamentoTicket.forEach(item => adicionarLinhaMapeamento(item.chave, item.valor));
+            } else {
+                adicionarLinhaMapeamento('subject', '[Mychat] {assunto} - {nomeLimpo}');
+                adicionarLinhaMapeamento('content', 'Protocolo: {protocolo}\nE-mail: {email}\nTelefone: {telefone}');
+            }
+        }
+    } catch (erro) {
+        console.error('Erro ao carregar configurações do HubSpot:', erro);
+    }
+}
+
+function adicionarLinhaMapeamento(chave = '', valor = '') {
+    const container = document.getElementById('tabela-mapeamento-hubspot');
+    if (!container) return;
+
+    const div = document.createElement('div');
+    div.className = 'linha-mapeamento';
+    
+    div.innerHTML = `
+        <input type="text" class="map-chave" placeholder="Chave no HubSpot (ex: hs_ticket_priority)" value="${chave}" style="flex: 0.8;">
+        <input type="text" class="map-valor" placeholder="Valor ou {variavel}" value="${valor}">
+        <button class="btn-remover-prop" onclick="this.parentElement.remove()" title="Remover propriedade">✖</button>
+    `;
+    container.appendChild(div);
+}
+
+async function salvarConfigHubspot(event) {
+    const btn = event.target;
+    const textoOriginal = btn.innerText;
+    btn.innerText = 'A salvar...';
+    btn.disabled = true;
+
+    const mapeamentoTicket = [];
+    document.querySelectorAll('.linha-mapeamento').forEach(linha => {
+        const chave = linha.querySelector('.map-chave').value.trim();
+        const valor = linha.querySelector('.map-valor').value.trim();
+        if (chave) mapeamentoTicket.push({ chave, valor });
+    });
+
+    const config = {
+        token: document.getElementById('hs-token').value.trim(),
+        pipelineId: document.getElementById('hs-pipeline').value.trim(),
+        stageNew: document.getElementById('hs-stage-new').value.trim(),
+        stageTicket: document.getElementById('hs-stage-ticket').value.trim(),
+        stageResolved: document.getElementById('hs-stage-resolved').value.trim(),
+        mapeamentoTicket: mapeamentoTicket
+    };
+
+    const prefixo = window.prefixoApp || '';
+    try {
+        const resposta = await fetch(prefixo + '/api/admin/hubspot/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+
+        const dados = await resposta.json();
+        if (dados.sucesso) {
+            alert('✅ Configurações do HubSpot salvas com sucesso!');
+        } else {
+            alert('❌ Erro ao salvar configurações.');
+        }
+    } catch (erro) {
+        console.error('Erro:', erro);
+        alert('Erro de comunicação com o servidor ao salvar HubSpot.');
+    } finally {
+        btn.innerText = textoOriginal;
+        btn.disabled = false;
+    }
+}
+
+// ============================================================================
 // --- GESTÃO DE MÉTRICAS (DASHBOARD) ---
 // ============================================================================
 
@@ -141,20 +238,17 @@ async function carregarMetricasDashboard() {
         const res = await fetch(url);
         const dados = await res.json();
 
-        // Helper seguro: Atualiza a propriedade innerText apenas se o elemento existir no DOM
         const atualizaKpi = (id, valor) => {
             const el = document.getElementById(id);
             if (el) el.innerText = valor;
         };
 
-        // 1. Visão Operacional em Aberto
         atualizaKpi('kpi-op-total', dados.totalAbertoOperacao || 0);
         atualizaKpi('kpi-op-fila', dados.filaChat || 0);
         atualizaKpi('kpi-op-chat-ativo', dados.emAtendimentoChat || 0);
         atualizaKpi('kpi-op-ticket-aberto', dados.ticketsAbertos || 0);
         atualizaKpi('kpi-op-ticket-andamento', dados.ticketsEmAndamento || 0);
 
-        // 2. Indicadores do Chat Síncrono
         atualizaKpi('kpi-chat-tma', `${dados.tmaMinutosChat || 0} min`);
         atualizaKpi('kpi-chat-nps', dados.npsMediaChat || '-');
         atualizaKpi('kpi-chat-nps-qtd', `${dados.qtdNpsChat || 0} avaliações`);
@@ -162,11 +256,9 @@ async function carregarMetricasDashboard() {
         atualizaKpi('kpi-chat-resolvidos', dados.resolvidosChat || 0);
         atualizaKpi('kpi-chat-nao-resolvidos', `${dados.naoResolvidosChat || 0} não resolvidos`);
 
-        // 3. Indicadores de Tickets
         atualizaKpi('kpi-ticket-total', dados.totalTickets || 0);
         atualizaKpi('kpi-ticket-concluidos', dados.ticketsConcluidos || 0);
 
-        // Tabela de Operadores (Com Tooltip no e-mail)
         const tbodyOp = document.getElementById('tabela-metricas-operadores');
         if (tbodyOp) {
             tbodyOp.innerHTML = '';
@@ -186,7 +278,6 @@ async function carregarMetricasDashboard() {
             }
         }
 
-        // Tabela de Assuntos
         const tbodyAssunto = document.getElementById('tabela-metricas-assuntos');
         if (tbodyAssunto) {
             tbodyAssunto.innerHTML = '';
@@ -205,7 +296,6 @@ async function carregarMetricasDashboard() {
             }
         }
 
-        // Tabela de Motivos de Não-Resolução
         const tbodyMotivos = document.getElementById('tabela-metricas-motivos');
         if (tbodyMotivos) {
             tbodyMotivos.innerHTML = '';
@@ -491,24 +581,20 @@ async function carregarListaEspiao() {
         const params = `inicio=${dataInicio}&fim=${dataFim}&_t=${Date.now()}`;
 
         if (filtroStatus === 'abertos') {
-            // Busca os Chats Síncronos Abertos
             const urlChats = `${prefixo}/api/atendimento/lista?${params}`;
             const resChats = await fetch(urlChats, { cache: 'no-store' });
             const dadosChats = await resChats.json();
 
-            // Busca os Tickets Abertos
             const urlTickets = `${prefixo}/api/tickets/lista?_t=${Date.now()}`;
             const resTickets = await fetch(urlTickets, { cache: 'no-store' });
             const dadosTickets = await resTickets.json();
 
-            // Mescla tudo na mesma lista do Espião
             listaEspiaoCache = [
                 ...(dadosChats.fila || []), 
                 ...(dadosChats.emAtendimento || []),
                 ...(dadosTickets.tickets || [])
             ];
         } else {
-            // Histórico contém Chats Encerrados E Tickets Concluídos (pois ambos recebem status Encerrado)
             const urlHistorico = `${prefixo}/api/atendimento/historico?${params}`;
             const resHist = await fetch(urlHistorico, { cache: 'no-store' });
             const dadosHist = await resHist.json();
@@ -524,16 +610,14 @@ async function carregarListaEspiao() {
 function filtrarListaEspiao() {
     const termo = (document.getElementById('input-busca-espiao')?.value || '').toLowerCase();
     const filtroAssunto = document.getElementById('filtro-assunto-espiao')?.value || 'todos';
-    const filtroTipo = document.getElementById('filtro-tipo-espiao')?.value || 'todos'; // NOVO: Chat vs Ticket
+    const filtroTipo = document.getElementById('filtro-tipo-espiao')?.value || 'todos';
     
     const filtrados = listaEspiaoCache.filter(chat => {
         const isTicket = chat.status === 'Ticket' || chat.tipoAtendimento === 'ticket' || Boolean(chat.subStatusTicket);
 
-        // Filtro de Modalidade (Chat vs Ticket)
         if (filtroTipo === 'chat' && isTicket) return false;
         if (filtroTipo === 'ticket' && !isTicket) return false;
 
-        // Busca por Nome, Email, Operador OU Protocolo
         const matchTexto = 
             (chat.nome && chat.nome.toLowerCase().includes(termo)) ||
             (chat.email && chat.email.toLowerCase().includes(termo)) ||
@@ -569,7 +653,7 @@ function renderizarListaEspiao(lista) {
         let statusExibicao = chat.status;
 
         if (isTicket) {
-            corStatus = '#7c3aed'; // Roxo Lello
+            corStatus = '#7c3aed';
             statusExibicao = `🎫 Ticket (${chat.subStatusTicket || 'Aberto'})`;
         } else {
             corStatus = chat.status === 'Em Atendimento' ? '#16a34a' : (chat.status === 'Encerrado' ? '#64748b' : '#dc2626');
@@ -768,7 +852,7 @@ function desenharBalaoEspiao(msg, container) {
     if (isSistema) {
         const div = document.createElement('div');
         div.className = 'msg-sistema';
-        div.innerHTML = texto; // Usamos innerHTML para os badges do sistema (conversão ticket) serem renderizados
+        div.innerHTML = texto; 
         container.appendChild(div);
         return;
     }
