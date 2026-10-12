@@ -152,7 +152,7 @@ async function adicionarNotaHubspot(hubspotTicketId, mensagem, remetente) {
                     hs_timestamp: Date.now().toString()
                 },
                 associations: [
-                    { to: { id: hubspotTicketId }, types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 225 }] }
+                    { to: { id: hubspotTicketId }, types: [{ associationCategory: "HUBSPOT_DEFINED", associationTypeId: 228 }] }
                 ]
             })
         });
