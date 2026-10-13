@@ -73,6 +73,7 @@ function aplicarVariaveisDinamicas(textoOriginal, chatData) {
         '{nomeLimpo}': chatData.nome ? chatData.nome.replace(/\[.*?\]/g, '').trim() : '',
         '{email}': chatData.email || '',
         '{telefone}': chatData.telefone || '',
+        '{responsavel}': chatData.responsavel || '',
         '{protocolo}': chatData.protocolo || '',
         '{assunto}': chatData.origem || '',
         '{contrato}': (chatData.contexto && chatData.contexto.contrato) || '',
@@ -195,7 +196,6 @@ const upload = multer({
 async function enviarEmailNotificacao({ para, assunto, html }) {
     if (!para || para === 'Não informado' || !para.includes('@')) return;
 
-    // Obtém as variáveis em tempo real e limpa espaços acidentais (.trim())
     const usuarioSmtp = (process.env.SMTP_USER || 'dehonsilva2@gmail.com').trim();
     const senhaSmtp = (process.env.SMTP_PASS || '').trim();
     const hostSmtp = (process.env.SMTP_HOST || 'smtp.gmail.com').trim();
@@ -211,7 +211,7 @@ async function enviarEmailNotificacao({ para, assunto, html }) {
     const transporter = nodemailer.createTransport({
         host: hostSmtp,
         port: portaSmtp,
-        secure: portaSmtp === 465, // true para porta 465 (SSL direto), false para 587 (STARTTLS)
+        secure: portaSmtp === 465,
         auth: {
             user: usuarioSmtp,
             pass: senhaSmtp
@@ -324,7 +324,7 @@ router.get('/assuntos', async (req, res) => {
 
 router.post('/iniciar', async (req, res) => {
     try {
-        const { nome, email, telefone, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
+        const { nome, email, telefone, responsavel, assunto, verificado, clienteId, contrato, imovel, origemUrl } = req.body;
         const id = clienteId ? String(clienteId).trim() : ('cliente_' + Math.floor(Math.random() * 90000 + 10000));
         const isVerificado = Boolean(verificado && verificado !== 'false' && verificado !== false);
         const rotuloModo = isVerificado ? '[Verificado]' : '[Declarado]';
@@ -346,6 +346,7 @@ router.post('/iniciar', async (req, res) => {
                 nome: `${nome || 'Cliente'} ${rotuloModo}`,
                 email: email || 'Não informado',
                 telefone: telefone || 'Não informado',
+                responsavel: responsavel ? String(responsavel).trim() : null, // Direcionamento exclusivo
                 origem: assunto || 'Geral',
                 verificado: isVerificado,
                 contexto: {
@@ -353,9 +354,9 @@ router.post('/iniciar', async (req, res) => {
                     imovel: imovel || 'Não informado',
                     origemUrl: origemUrl || 'Acesso Direto'
                 },
-                status: 'Aguardando',
+                status: 'Aguardando', // Entra na fila para exigir o clique em "Assumir Atendimento"
                 atendente: null,
-                hubspotTicketId: null, // --- INÍCIO INTEGRAÇÃO HUBSPOT ---
+                hubspotTicketId: null,
                 mensagens: [
                     { de: 'sistema', texto: '👋 Olá! Seja bem-vindo ao nosso atendimento.' },
                     { de: 'sistema', texto: `📋 O número do seu protocolo é: ${protocolo}` }

@@ -10,6 +10,8 @@ let ultimasMensagensClienteCount = 0;
 const urlParams = new URLSearchParams(window.location.search);
 const ctxNome = urlParams.get('nome') || '';
 const ctxEmail = urlParams.get('email') || '';
+const ctxTelefone = urlParams.get('telefone') || '';
+const ctxResponsavel = urlParams.get('responsavel') || '';
 const ctxContrato = urlParams.get('contrato') || '';
 const ctxImovel = urlParams.get('imovel') || '';
 const ctxOrigemUrl = urlParams.get('origemUrl') || '';
@@ -96,6 +98,8 @@ async function iniciarAtendimentoComTriagem() {
     const dadosCliente = {
         nome,
         email,
+        telefone: ctxTelefone,
+        responsavel: ctxResponsavel,
         assunto,
         verificado: ctxVerificado,
         contrato: ctxContrato,
@@ -308,7 +312,6 @@ async function carregarRespostasServidor() {
             npsExibido = true;
             
             if (dados.nps && dados.nps.nota) {
-                // Já foi avaliado anteriormente
                 exibirAvisoEncerrado();
             } else {
                 exibirFormularioNPS();

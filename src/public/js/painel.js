@@ -297,11 +297,24 @@ async function carregarListaAtendimentos() {
         const fila = dados.fila || [];
         const ativos = dados.emAtendimento || [];
 
-        // Verifica novas entradas na Fila e toca o Som
-        if (fila.length > quantidadeFilaAnterior) {
+        // Identifica quem é o operador logado atual
+        const meuEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email.toLowerCase() : '';
+        const meuNome = (obterNomeOperador() || '').toLowerCase();
+
+        // Filtra os chamados da fila que são relevantes para este operador
+        const filaVisivel = fila.filter(chat => {
+            const resp = chat.responsavel ? chat.responsavel.trim().toLowerCase() : '';
+            if (resp) {
+                return resp === meuEmail || resp === meuNome;
+            }
+            return true;
+        });
+
+        // Toca o som apenas se entrar um chamado destinado a este operador ou para a fila geral
+        if (filaVisivel.length > quantidadeFilaAnterior) {
             emitirBeepSonoro();
         }
-        quantidadeFilaAnterior = fila.length;
+        quantidadeFilaAnterior = filaVisivel.length;
 
         renderizarFila(fila);
         renderizarAtivos(ativos);
@@ -342,13 +355,26 @@ function renderizarFila(fila) {
     const container = document.getElementById('lista-fila');
     const countElement = document.getElementById('count-fila');
 
-    let filaExibida = fila;
-    if (modoFiltroFila === 'minhas' && operadorPerfilCache && Array.isArray(operadorPerfilCache.assuntos) && operadorPerfilCache.assuntos.length > 0) {
-        filaExibida = fila.filter(chat => {
+    const meuEmail = (auth.currentUser && auth.currentUser.email) ? auth.currentUser.email.toLowerCase() : '';
+    const meuNome = (obterNomeOperador() || '').toLowerCase();
+
+    // FILTRO DE DIRECIONAMENTO E COMPETÊNCIAS
+    let filaExibida = fila.filter(chat => {
+        const resp = chat.responsavel ? chat.responsavel.trim().toLowerCase() : '';
+        
+        // 1. Se tem responsável predefinido, SÓ exibe para o próprio responsável
+        if (resp) {
+            return resp === meuEmail || resp === meuNome;
+        }
+
+        // 2. Se NÃO tem responsável (Fila Geral), aplica o filtro por competências/assuntos se ativo
+        if (modoFiltroFila === 'minhas' && operadorPerfilCache && Array.isArray(operadorPerfilCache.assuntos) && operadorPerfilCache.assuntos.length > 0) {
             const assuntoChat = chat.origem || 'Geral';
             return operadorPerfilCache.assuntos.includes(assuntoChat);
-        });
-    }
+        }
+
+        return true;
+    });
 
     if (countElement) countElement.innerText = filaExibida.length;
     if (!container) return;
@@ -364,9 +390,14 @@ function renderizarFila(fila) {
     }
 
     filaExibida.forEach(chat => {
-        // Na fila é normal que todas aguardem resposta, então sempre destacamos com o alerta
+        const resp = chat.responsavel ? chat.responsavel.trim().toLowerCase() : '';
+        const ehDirecionado = resp && (resp === meuEmail || resp === meuNome);
+
         const classAlerta = 'pendente-resposta';
-        const badgeAlerta = `<span class="badge-pendente-resposta">🚨 Novo!</span>`;
+        // Badge diferenciada se for exclusivo para este colaborador
+        const badgeAlerta = ehDirecionado 
+            ? `<span class="badge-pendente-resposta" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">🎯 Para você</span>`
+            : `<span class="badge-pendente-resposta">🚨 Novo!</span>`;
 
         const div = document.createElement('div');
         div.className = `card-chat ${classAlerta}`;
@@ -762,7 +793,7 @@ async function enviarAnexoOperador(event) {
 }
 
 // ==========================================
-// MÓDULO DE TICKETS E TABULAÇÕES CONTINUA...
+// MÓDULO DE TICKETS E TABULAÇÕES
 // ==========================================
 function abrirModalConverterTicket() {
     if (!chatSelecionadoId) return;

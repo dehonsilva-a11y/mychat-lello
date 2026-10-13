@@ -80,6 +80,11 @@
         const contexto = capturarContextoOrigem();
         const nomeCliente = (config.cliente && config.cliente.nome && !config.cliente.nome.includes('{{')) ? config.cliente.nome : '';
         const emailCliente = (config.cliente && config.cliente.email && !config.cliente.email.includes('{{')) ? config.cliente.email : '';
+        
+        // Novos campos: Telefone e Responsavel
+        const telefoneCliente = (config.cliente && config.cliente.telefone && !config.cliente.telefone.includes('{{')) ? config.cliente.telefone : '';
+        const responsavelCliente = (config.cliente && config.cliente.responsavel && !config.cliente.responsavel.includes('{{')) ? config.cliente.responsavel : '';
+        
         const contrato = (config.cliente && config.cliente.contrato && !config.cliente.contrato.includes('{{')) ? config.cliente.contrato : '';
         const imovel = (config.cliente && config.cliente.imovel && !config.cliente.imovel.includes('{{')) ? config.cliente.imovel : '';
 
@@ -88,6 +93,8 @@
             pagina: contexto.paginaTitulo,
             nome: nomeCliente,
             email: emailCliente,
+            telefone: telefoneCliente, // Enviando telefone para o iframe
+            responsavel: responsavelCliente, // Enviando o direcionamento exclusivo
             contrato: contrato,
             imovel: imovel,
             verificado: (emailCliente ? 'true' : 'false')
